@@ -12,6 +12,7 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Register service worker after the page loads
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
@@ -19,7 +20,7 @@
               console.log('ServiceWorker registration successful');
             })
             .catch(error => {
-              console.log('ServiceWorker registration failed:', error);
+              console.error('ServiceWorker registration failed:', error);
             });
         });
       }
