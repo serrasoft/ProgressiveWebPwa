@@ -4,8 +4,9 @@ import { useLocation } from "wouter";
 
 const quickLinks = [
   { title: "Nyheter", href: "https://www.hsb.se/sodertorn/brf/docenten/nyheter/" },
-  { title: "Support", href: "https://support.example.com" },
-  { title: "Community", href: "https://community.example.com" },
+  { title: "Boka samlingslokalen", href: "https://mail.docenten.se/bokning/samlingslokalen/" },
+  { title: "Boka lägenheten", href: "https://mail.docenten.se/bokning/docenten/lagenheten/" },
+  { title: "Boka snickarboa", href: "https://mail.docenten.se/bokning/docenten/snickarboa/" },
 ];
 
 export default function Home() {
