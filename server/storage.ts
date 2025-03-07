@@ -1,4 +1,6 @@
-import { users, pushSubscriptions, type User, type InsertUser, type PushSubscription } from "@shared/schema";
+import { users, notifications, pushSubscriptions, type User, type InsertUser, type PushSubscription, type Notification } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -6,53 +8,46 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   createPushSubscription(subscription: any): Promise<PushSubscription>;
   getActivePushSubscriptions(): Promise<PushSubscription[]>;
+  getNotifications(): Promise<Notification[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private subscriptions: Map<number, PushSubscription>;
-  currentId: number;
-  currentSubscriptionId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.subscriptions = new Map();
-    this.currentId = 1;
-    this.currentSubscriptionId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async createPushSubscription(data: any): Promise<PushSubscription> {
-    const id = this.currentSubscriptionId++;
-    const subscription: PushSubscription = {
-      id,
-      userId: data.userId,
-      subscription: data.subscription,
-      active: true,
-    };
-    this.subscriptions.set(id, subscription);
+    const [subscription] = await db
+      .insert(pushSubscriptions)
+      .values(data)
+      .returning();
     return subscription;
   }
 
   async getActivePushSubscriptions(): Promise<PushSubscription[]> {
-    return Array.from(this.subscriptions.values()).filter(sub => sub.active);
+    return db
+      .select()
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.active, true));
+  }
+
+  async getNotifications(): Promise<Notification[]> {
+    return db
+      .select()
+      .from(notifications)
+      .orderBy(desc(notifications.createdAt));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

@@ -6,7 +6,7 @@ import { storage } from "./storage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
-  
+
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     console.warn("Warning: VAPID keys not configured - push notifications will be unavailable");
     return httpServer;
@@ -17,6 +17,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
+
+  // Add GET endpoint for notifications
+  app.get("/api/notifications", async (_req, res) => {
+    try {
+      const notifications = await storage.getNotifications();
+      console.log('Fetched notifications:', notifications);
+      res.json(notifications);
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
 
   app.post("/api/notifications/subscribe", async (req, res) => {
     try {

@@ -20,7 +20,13 @@ export default function Notifications() {
   // Fetch notifications from the API
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
-    queryFn: () => apiRequest('GET', '/api/notifications'),
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/notifications');
+      if (!Array.isArray(response)) {
+        return [];
+      }
+      return response;
+    },
   });
 
   useEffect(() => {
