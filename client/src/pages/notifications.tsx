@@ -5,16 +5,36 @@ import { Bell, Send, AlertCircle } from "lucide-react";
 import { requestNotificationPermission, subscribeToNotifications } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { isIOS, supportsWebPushAPI } from "@/lib/utils";
+import { isIOS, isSafari, supportsWebPushAPI } from "@/lib/utils";
 
 export default function Notifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const isIOSDevice = isIOS();
+  const isSafariBrowser = isSafari();
   const pushSupported = supportsWebPushAPI();
 
+  useEffect(() => {
+    // Prevent any notification-related code from running on iOS Safari
+    if (!isIOSDevice && !isSafariBrowser) {
+      // Check if already subscribed
+      navigator.serviceWorker.ready
+        .then(registration => registration.pushManager.getSubscription())
+        .then(subscription => {
+          setIsSubscribed(!!subscription);
+        })
+        .catch(error => {
+          console.error('Error checking subscription status:', error);
+        });
+    }
+  }, [isIOSDevice, isSafariBrowser]);
+
   const handleSubscribe = async () => {
+    if (isIOSDevice || isSafariBrowser) {
+      return; // Early return for unsupported browsers
+    }
+
     setIsLoading(true);
     try {
       await requestNotificationPermission();
@@ -24,7 +44,7 @@ export default function Notifications() {
         title: "Success",
         description: "Push notifications have been enabled",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Notification setup error:', error);
       toast({
         title: "Error",
@@ -37,6 +57,10 @@ export default function Notifications() {
   };
 
   const sendTestNotification = async () => {
+    if (isIOSDevice || isSafariBrowser) {
+      return; // Early return for unsupported browsers
+    }
+
     setIsLoading(true);
     try {
       await apiRequest("POST", "/api/notifications/send", {
@@ -59,17 +83,16 @@ export default function Notifications() {
   };
 
   const renderContent = () => {
-    if (isIOSDevice) {
+    if (isIOSDevice || isSafariBrowser) {
       return (
         <div className="space-y-4">
           <div className="flex items-start gap-2 p-4 border rounded-lg bg-yellow-50">
             <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div>
-              <h3 className="font-medium text-yellow-800">iOS Limitations</h3>
+              <h3 className="font-medium text-yellow-800">Safari/iOS Limitations</h3>
               <p className="text-sm text-yellow-700 mt-1">
-                Push notifications are not supported on iOS browsers. For the best experience, 
-                add this app to your home screen by tapping the share button and selecting 
-                "Add to Home Screen".
+                Push notifications are not supported in Safari or on iOS devices. For the best experience, 
+                please add this app to your home screen or use a different browser like Chrome or Edge.
               </p>
             </div>
           </div>
