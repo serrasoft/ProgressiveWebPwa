@@ -7,6 +7,7 @@ const quickLinks = [
   { title: "Boka samlingslokalen", href: "https://mail.docenten.se/bokning/samlingslokalen/" },
   { title: "Boka lägenheten", href: "https://mail.docenten.se/bokning/docenten/lagenheten/" },
   { title: "Boka snickarboa", href: "https://mail.docenten.se/bokning/docenten/snickarboa/" },
+  { title: "Inofficiell Facebookgrupp", href: "https://www.facebook.com/groups/1233199001206234/" },
 ];
 
 export default function Home() {
