@@ -18,7 +18,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notifications/subscribe", async (req, res) => {
     try {
       const parsed = insertPushSubscriptionSchema.parse(req.body);
+      console.log('Creating push subscription:', parsed);
       const subscription = await storage.createPushSubscription(parsed);
+      console.log('Push subscription created:', subscription);
       res.json(subscription);
     } catch (error) {
       console.error('Subscription error:', error);
@@ -35,22 +37,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No active subscriptions found" });
       }
 
+      const payload = JSON.stringify({
+        title: req.body.title || "New Notification",
+        body: req.body.body || "You have a new notification",
+      });
+      console.log('Sending notification payload:', payload);
+
       const notifications = subscriptions.map(sub => {
-        console.log('Sending notification to subscription:', sub.id);
+        console.log('Sending notification to subscription:', sub.id, sub.subscription);
         return webpush.sendNotification(
           sub.subscription as webpush.PushSubscription,
-          JSON.stringify({
-            title: req.body.title || "New Notification",
-            body: req.body.body || "You have a new notification",
-          })
+          payload
         ).catch(error => {
           console.error(`Failed to send notification to subscription ${sub.id}:`, error);
+          if (error.statusCode === 410) {
+            // Subscription has expired or is invalid
+            console.log(`Subscription ${sub.id} is no longer valid`);
+          }
           return null;
         });
       });
 
-      await Promise.all(notifications);
-      res.json({ success: true, sent: subscriptions.length });
+      const results = await Promise.all(notifications);
+      const successCount = results.filter(Boolean).length;
+      console.log(`Successfully sent ${successCount} notifications`);
+
+      res.json({ success: true, sent: successCount });
     } catch (error) {
       console.error('Failed to send notifications:', error);
       res.status(500).json({ error: "Failed to send notifications" });
