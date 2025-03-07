@@ -38,6 +38,14 @@ app.use((req, res, next) => {
     if (process.env.NODE_ENV !== "production") {
       // In development, use Vite's dev server
       await setupVite(app, server);
+    } else {
+      // In production, serve static files
+      app.use(express.static(path.join(process.cwd(), "dist", "public")));
+      
+      // Serve index.html for all routes (SPA fallback)
+      app.get("*", (_req, res) => {
+        res.sendFile(path.join(process.cwd(), "dist", "public", "index.html"));
+      });
     }
 
     const port = 5000;
