@@ -11,7 +11,7 @@ const __dirname = dirname(__filename);
 export default defineConfig({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
+    // runtimeErrorOverlay(), // Remove this line
     themePlugin(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
@@ -22,6 +22,11 @@ export default defineConfig({
         ]
       : []),
   ],
+  server: {
+    hmr: {
+      overlay: false // Add this configuration
+    }
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "client", "src"),
