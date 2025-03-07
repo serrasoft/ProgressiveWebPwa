@@ -8,35 +8,41 @@ import { apiRequest } from "@/lib/queryClient";
 
 export default function Notifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubscribe = async () => {
+    setIsLoading(true);
     try {
       await requestNotificationPermission();
       await subscribeToNotifications();
       setIsSubscribed(true);
       toast({
-        title: "Notifications enabled",
-        description: "You will now receive push notifications",
+        title: "Success",
+        description: "Push notifications have been enabled",
       });
     } catch (error) {
+      console.error('Notification setup error:', error);
       toast({
         title: "Error",
-        description: "Failed to enable notifications",
+        description: error.message || "Failed to enable notifications",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const sendTestNotification = async () => {
+    setIsLoading(true);
     try {
       await apiRequest("POST", "/api/notifications/send", {
         title: "Test Notification",
         body: "This is a test push notification!",
       });
       toast({
-        title: "Notification sent",
-        description: "Check your notifications!",
+        title: "Success",
+        description: "Test notification sent successfully",
       });
     } catch (error) {
       toast({
@@ -44,6 +50,8 @@ export default function Notifications() {
         description: "Failed to send test notification",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,18 +65,26 @@ export default function Notifications() {
         </CardHeader>
         <CardContent className="space-y-4">
           {!isSubscribed ? (
-            <Button onClick={handleSubscribe} className="w-full">
+            <Button 
+              onClick={handleSubscribe} 
+              className="w-full"
+              disabled={isLoading}
+            >
               <Bell className="mr-2 h-4 w-4" />
-              Enable Notifications
+              {isLoading ? "Enabling..." : "Enable Notifications"}
             </Button>
           ) : (
             <>
               <p className="text-sm text-muted-foreground mb-4">
                 You are subscribed to push notifications
               </p>
-              <Button onClick={sendTestNotification} className="w-full">
+              <Button 
+                onClick={sendTestNotification} 
+                className="w-full"
+                disabled={isLoading}
+              >
                 <Send className="mr-2 h-4 w-4" />
-                Send Test Notification
+                {isLoading ? "Sending..." : "Send Test Notification"}
               </Button>
             </>
           )}
