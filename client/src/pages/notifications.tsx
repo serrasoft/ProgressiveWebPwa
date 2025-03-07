@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bell, Send, AlertCircle } from "lucide-react";
+import { Bell, Send, AlertCircle, ExternalLink } from "lucide-react";
 import { requestNotificationPermission, subscribeToNotifications } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isIOS, isSafari, supportsWebPushAPI } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import type { Notification } from "@shared/schema";
 
 export default function Notifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -14,6 +16,12 @@ export default function Notifications() {
   const isIOSDevice = isIOS();
   const isSafariBrowser = isSafari();
   const pushSupported = supportsWebPushAPI();
+
+  // Fetch notifications from the API
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ['/api/notifications'],
+    queryFn: () => apiRequest('GET', '/api/notifications'),
+  });
 
   useEffect(() => {
     if (!isIOSDevice && !isSafariBrowser) {
@@ -147,12 +155,40 @@ export default function Notifications() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Notiser</h1>
 
+      {/* Push Notifications Card */}
       <Card>
         <CardHeader>
           <CardTitle>Pushnotiser</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {renderContent()}
+        </CardContent>
+      </Card>
+
+      {/* System Notifications Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Meddelanden</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {notifications.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Inga meddelanden att visa</p>
+          ) : (
+            <div className="space-y-2">
+              {notifications.map(notification => (
+                <a
+                  key={notification.id}
+                  href={notification.link || '#'}
+                  target={notification.link ? "_blank" : undefined}
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
+                >
+                  <span>{notification.title}</span>
+                  {notification.link && <ExternalLink className="h-4 w-4" />}
+                </a>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
