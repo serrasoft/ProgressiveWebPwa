@@ -21,6 +21,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subscription = await storage.createPushSubscription(parsed);
       res.json(subscription);
     } catch (error) {
+      console.error('Subscription error:', error);
       res.status(400).json({ error: "Invalid subscription data" });
     }
   });
@@ -28,20 +29,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notifications/send", async (req, res) => {
     try {
       const subscriptions = await storage.getActivePushSubscriptions();
-      
-      const notifications = subscriptions.map(sub => 
-        webpush.sendNotification(
-          sub.subscription,
+      console.log('Found active subscriptions:', subscriptions.length);
+
+      if (subscriptions.length === 0) {
+        return res.status(400).json({ error: "No active subscriptions found" });
+      }
+
+      const notifications = subscriptions.map(sub => {
+        console.log('Sending notification to subscription:', sub.id);
+        return webpush.sendNotification(
+          sub.subscription as webpush.PushSubscription,
           JSON.stringify({
-            title: req.body.title,
-            body: req.body.body,
+            title: req.body.title || "New Notification",
+            body: req.body.body || "You have a new notification",
           })
-        )
-      );
+        ).catch(error => {
+          console.error(`Failed to send notification to subscription ${sub.id}:`, error);
+          return null;
+        });
+      });
 
       await Promise.all(notifications);
-      res.json({ success: true });
+      res.json({ success: true, sent: subscriptions.length });
     } catch (error) {
+      console.error('Failed to send notifications:', error);
       res.status(500).json({ error: "Failed to send notifications" });
     }
   });
