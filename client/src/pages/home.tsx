@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
+import { useLocation } from "wouter";
 
 const quickLinks = [
   { title: "Documentation", href: "https://docs.example.com" },
@@ -8,6 +9,13 @@ const quickLinks = [
 ];
 
 export default function Home() {
+  const [, setLocation] = useLocation();
+
+  const handleLinkClick = (href: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    setLocation(`/browser?url=${encodeURIComponent(href)}`);
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Welcome Back!</h1>
@@ -22,8 +30,7 @@ export default function Home() {
               <a
                 key={link.href}
                 href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={handleLinkClick(link.href)}
                 className="flex items-center justify-between p-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
               >
                 <span>{link.title}</span>

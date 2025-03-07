@@ -7,6 +7,7 @@ import Home from "./pages/home";
 import Notifications from "./pages/notifications";
 import Profile from "./pages/profile";
 import Settings from "./pages/settings";
+import Browser from "./pages/browser";
 import NotFound from "./pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
         <Route path="/notifications" component={Notifications} />
         <Route path="/profile" component={Profile} />
         <Route path="/settings" component={Settings} />
+        <Route path="/browser" component={Browser} />
         <Route component={NotFound} />
       </Switch>
     </MobileLayout>
