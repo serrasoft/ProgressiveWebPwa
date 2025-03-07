@@ -5,8 +5,11 @@ import { insertPushSubscriptionSchema } from "@shared/schema";
 import { storage } from "./storage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const httpServer = createServer(app);
+  
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
-    throw new Error("VAPID keys not configured");
+    console.warn("Warning: VAPID keys not configured - push notifications will be unavailable");
+    return httpServer;
   }
 
   webpush.setVapidDetails(
@@ -69,6 +72,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  const httpServer = createServer(app);
   return httpServer;
 }

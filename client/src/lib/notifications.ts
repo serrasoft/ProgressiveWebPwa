@@ -16,7 +16,8 @@ export async function requestNotificationPermission() {
 
 export async function subscribeToNotifications() {
   if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
-    throw new Error("VAPID public key is not configured");
+    console.warn("VAPID public key is not configured - push notifications are disabled");
+    return null;
   }
 
   try {
