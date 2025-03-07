@@ -3,7 +3,7 @@ import { ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 
 const quickLinks = [
-  { title: "Dokumentation", href: "https://docs.example.com" },
+  { title: "Nyheter", href: "https://www.hsb.se/sodertorn/brf/docenten/nyheter/" },
   { title: "Support", href: "https://support.example.com" },
   { title: "Community", href: "https://community.example.com" },
 ];
