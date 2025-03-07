@@ -4,10 +4,10 @@ import { useLocation } from "wouter";
 
 const quickLinks = [
   { title: "Docenten.se", href: "https://www.hsb.se/sodertorn/brf/docenten/", useInAppBrowser: true },
-  { title: "Nyheter", href: "https://www.hsb.se/sodertorn/brf/docenten/nyheter/" },
-  { title: "Boka samlingslokalen", href: "https://mail.docenten.se/bokning/samlingslokalen/" },
-  { title: "Boka lägenheten", href: "https://mail.docenten.se/bokning/docenten/lagenheten/" },
-  { title: "Boka snickarboa", href: "https://mail.docenten.se/bokning/docenten/snickarboa/" },
+  { title: "Nyheter", href: "https://www.hsb.se/sodertorn/brf/docenten/nyheter/", useInAppBrowser: true },
+  { title: "Boka samlingslokalen", href: "https://mail.docenten.se/bokning/samlingslokalen/", useInAppBrowser: true },
+  { title: "Boka lägenheten", href: "https://mail.docenten.se/bokning/docenten/lagenheten/", useInAppBrowser: true },
+  { title: "Boka snickarboa", href: "https://mail.docenten.se/bokning/docenten/snickarboa/", useInAppBrowser: true },
   { title: "Inofficiell Facebookgrupp", href: "https://www.facebook.com/groups/1233199001206234/" },
   { title: "Nyheter från styrelsen (login)", href: "https://mitthsb.hsb.se/mitthsb/oversikt/meddelanden-fran-styrelsen/" },
 ];
