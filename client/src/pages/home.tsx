@@ -10,6 +10,7 @@ const quickLinks = [
   { title: "Boka snickarboa", href: "https://mail.docenten.se/bokning/docenten/snickarboa/", useInAppBrowser: true },
   { title: "Inofficiell Facebookgrupp", href: "https://www.facebook.com/groups/1233199001206234/" },
   { title: "Nyheter från styrelsen (login)", href: "https://mitthsb.hsb.se/mitthsb/oversikt/meddelanden-fran-styrelsen/" },
+  { title: "Mina bostadsuppgifter HSB (login)", href: "https://mitthsb.hsb.se/mitthsb/min-bostad/bostadsinformation/" },
 ];
 
 export default function Home() {
