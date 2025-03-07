@@ -18,16 +18,29 @@ export default function Notifications() {
   const pushSupported = supportsWebPushAPI();
 
   // Fetch notifications from the API
-  const { data: notifications = [] } = useQuery<Notification[]>({
+  const { data: notifications = [], error: notificationsError } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/notifications');
+      console.log('Notifications API response:', response);
       if (!Array.isArray(response)) {
+        console.warn('Expected array of notifications, got:', response);
         return [];
       }
       return response;
     },
   });
+
+  useEffect(() => {
+    if (notificationsError) {
+      console.error('Failed to fetch notifications:', notificationsError);
+      toast({
+        title: "Fel",
+        description: "Kunde inte hämta meddelanden",
+        variant: "destructive",
+      });
+    }
+  }, [notificationsError, toast]);
 
   useEffect(() => {
     if (!isIOSDevice && !isSafariBrowser) {
@@ -50,7 +63,8 @@ export default function Notifications() {
     setIsLoading(true);
     try {
       await requestNotificationPermission();
-      await subscribeToNotifications();
+      const subscription = await subscribeToNotifications();
+      console.log('Push subscription created:', subscription);
       setIsSubscribed(true);
       toast({
         title: "Klart",
@@ -75,15 +89,17 @@ export default function Notifications() {
 
     setIsLoading(true);
     try {
-      await apiRequest("POST", "/api/notifications/send", {
+      const response = await apiRequest("POST", "/api/notifications/send", {
         title: "Testnotis",
         body: "Detta är en test pushnotis!",
       });
+      console.log('Test notification response:', response);
       toast({
         title: "Klart",
         description: "Testnotisen har skickats",
       });
     } catch (error) {
+      console.error('Failed to send test notification:', error);
       toast({
         title: "Fel",
         description: "Det gick inte att skicka testnotisen",

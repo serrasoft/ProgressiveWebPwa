@@ -23,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const notifications = await storage.getNotifications();
       console.log('Fetched notifications:', notifications);
-      res.json(notifications);
+      res.json(notifications || []);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
       res.status(500).json({ error: "Failed to fetch notifications" });
