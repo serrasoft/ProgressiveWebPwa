@@ -3,7 +3,7 @@ import { ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 
 const quickLinks = [
-  { title: "Documentation", href: "https://docs.example.com" },
+  { title: "Dokumentation", href: "https://docs.example.com" },
   { title: "Support", href: "https://support.example.com" },
   { title: "Community", href: "https://community.example.com" },
 ];
@@ -18,11 +18,11 @@ export default function Home() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Welcome Back!</h1>
+      <h1 className="text-2xl font-bold">Välkommen tillbaka!</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Quick Links</CardTitle>
+          <CardTitle>Snabblänkar</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-2">

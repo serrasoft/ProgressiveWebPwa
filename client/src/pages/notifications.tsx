@@ -16,9 +16,7 @@ export default function Notifications() {
   const pushSupported = supportsWebPushAPI();
 
   useEffect(() => {
-    // Prevent any notification-related code from running on iOS Safari
     if (!isIOSDevice && !isSafariBrowser) {
-      // Check if already subscribed
       navigator.serviceWorker.ready
         .then(registration => registration.pushManager.getSubscription())
         .then(subscription => {
@@ -32,7 +30,7 @@ export default function Notifications() {
 
   const handleSubscribe = async () => {
     if (isIOSDevice || isSafariBrowser) {
-      return; // Early return for unsupported browsers
+      return;
     }
 
     setIsLoading(true);
@@ -41,14 +39,14 @@ export default function Notifications() {
       await subscribeToNotifications();
       setIsSubscribed(true);
       toast({
-        title: "Success",
-        description: "Push notifications have been enabled",
+        title: "Klart",
+        description: "Pushnotiser har aktiverats",
       });
     } catch (error: any) {
       console.error('Notification setup error:', error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to enable notifications",
+        title: "Fel",
+        description: error.message || "Det gick inte att aktivera notiser",
         variant: "destructive",
       });
     } finally {
@@ -58,23 +56,23 @@ export default function Notifications() {
 
   const sendTestNotification = async () => {
     if (isIOSDevice || isSafariBrowser) {
-      return; // Early return for unsupported browsers
+      return;
     }
 
     setIsLoading(true);
     try {
       await apiRequest("POST", "/api/notifications/send", {
-        title: "Test Notification",
-        body: "This is a test push notification!",
+        title: "Testnotis",
+        body: "Detta är en test pushnotis!",
       });
       toast({
-        title: "Success",
-        description: "Test notification sent successfully",
+        title: "Klart",
+        description: "Testnotisen har skickats",
       });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to send test notification",
+        title: "Fel",
+        description: "Det gick inte att skicka testnotisen",
         variant: "destructive",
       });
     } finally {
@@ -89,10 +87,10 @@ export default function Notifications() {
           <div className="flex items-start gap-2 p-4 border rounded-lg bg-yellow-50">
             <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div>
-              <h3 className="font-medium text-yellow-800">Safari/iOS Limitations</h3>
+              <h3 className="font-medium text-yellow-800">Safari/iOS Begränsningar</h3>
               <p className="text-sm text-yellow-700 mt-1">
-                Push notifications are not supported in Safari or on iOS devices. For the best experience, 
-                please add this app to your home screen or use a different browser like Chrome or Edge.
+                Pushnotiser stöds inte i Safari eller på iOS-enheter. För bästa upplevelse, 
+                vänligen lägg till denna app på hemskärmen eller använd en annan webbläsare som Chrome eller Edge.
               </p>
             </div>
           </div>
@@ -105,10 +103,10 @@ export default function Notifications() {
         <div className="flex items-start gap-2 p-4 border rounded-lg bg-yellow-50">
           <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
           <div>
-            <h3 className="font-medium text-yellow-800">Browser Not Supported</h3>
+            <h3 className="font-medium text-yellow-800">Webbläsaren stöds inte</h3>
             <p className="text-sm text-yellow-700 mt-1">
-              Your browser doesn't support push notifications. Please try using a modern browser 
-              like Chrome, Firefox, or Edge.
+              Din webbläsare stöder inte pushnotiser. Vänligen använd en modern webbläsare 
+              som Chrome, Firefox eller Edge.
             </p>
           </div>
         </div>
@@ -124,12 +122,12 @@ export default function Notifications() {
             disabled={isLoading}
           >
             <Bell className="mr-2 h-4 w-4" />
-            {isLoading ? "Enabling..." : "Enable Notifications"}
+            {isLoading ? "Aktiverar..." : "Aktivera notiser"}
           </Button>
         ) : (
           <>
             <p className="text-sm text-muted-foreground mb-4">
-              You are subscribed to push notifications
+              Du prenumererar på pushnotiser
             </p>
             <Button 
               onClick={sendTestNotification} 
@@ -137,7 +135,7 @@ export default function Notifications() {
               disabled={isLoading}
             >
               <Send className="mr-2 h-4 w-4" />
-              {isLoading ? "Sending..." : "Send Test Notification"}
+              {isLoading ? "Skickar..." : "Skicka testnotis"}
             </Button>
           </>
         )}
@@ -147,11 +145,11 @@ export default function Notifications() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Notifications</h1>
+      <h1 className="text-2xl font-bold">Notiser</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Push Notifications</CardTitle>
+          <CardTitle>Pushnotiser</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {renderContent()}

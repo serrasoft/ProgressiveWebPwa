@@ -5,18 +5,18 @@ import { Switch } from "@/components/ui/switch";
 export default function Settings() {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="text-2xl font-bold">Inställningar</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>App Preferences</CardTitle>
+          <CardTitle>App-inställningar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label>Dark Mode</Label>
+              <Label>Mörkt läge</Label>
               <p className="text-sm text-muted-foreground">
-                Enable dark mode for the app
+                Aktivera mörkt läge för appen
               </p>
             </div>
             <Switch />
@@ -24,9 +24,9 @@ export default function Settings() {
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label>Offline Mode</Label>
+              <Label>Offline-läge</Label>
               <p className="text-sm text-muted-foreground">
-                Enable offline functionality
+                Aktivera offline-funktionalitet
               </p>
             </div>
             <Switch defaultChecked />
