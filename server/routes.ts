@@ -58,6 +58,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/notifications/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid notification ID" });
+      }
+
+      // Delete the notification
+      await db.delete(schema.notifications)
+        .where(eq(schema.notifications.id, id))
+        .execute();
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      res.status(500).json({ error: "Failed to delete notification" });
+    }
+  });
+
   app.post("/api/notifications/subscribe", async (req, res) => {
     try {
       console.log('Received subscription request:', req.body);

@@ -1,12 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { Home, Bell, User, Settings, Shield } from "lucide-react";
+import { Home, Bell, User, Settings } from "lucide-react";
 
 const navItems = [
   { icon: Home, label: "Hem", href: "/" },
   { icon: Bell, label: "Notiser", href: "/notifications" },
   { icon: User, label: "Profil", href: "/profile" },
   { icon: Settings, label: "Inställningar", href: "/settings" },
-  { icon: Shield, label: "Admin", href: "/admin" },
 ];
 
 export default function BottomNav() {
@@ -14,7 +13,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-background border-t">
-      <div className="grid grid-cols-5 h-16">
+      <div className="grid grid-cols-4 h-16">
         {navItems.map(({ icon: Icon, label, href }) => {
           const isActive = location === href;
           return (
