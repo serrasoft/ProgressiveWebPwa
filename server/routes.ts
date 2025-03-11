@@ -148,31 +148,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add these endpoints before the existing routes
-  app.get("/api/users/test", async (_req, res) => {
-    try {
-      // First try to find existing test user
-      let [user] = await db.select().from(schema.users).where(eq(schema.users.username, 'testuser'));
-
-      // If no test user exists, create one
-      if (!user) {
-        console.log('Creating test user...');
-        const testUser = {
-          username: 'testuser',
-          password: 'testpass',
-          displayName: 'Test User',
-        };
-        [user] = await db.insert(schema.users).values(testUser).returning();
-        console.log('Test user created:', user);
-      }
-
-      res.json({ id: user.id });
-    } catch (error) {
-      console.error('Failed to fetch/create test user:', error);
-      res.status(500).json({ error: "Failed to fetch/create test user" });
-    }
-  });
-
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     console.warn("Warning: VAPID keys not configured - push notifications will be unavailable");
     return httpServer;
