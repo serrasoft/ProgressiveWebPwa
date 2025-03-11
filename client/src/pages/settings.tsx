@@ -1,12 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [offlineMode, setOfflineMode] = useState(false);
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   // Load offline mode setting from localStorage
   useEffect(() => {
@@ -27,6 +32,36 @@ export default function Settings() {
           });
         });
       }
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        // Clear offline auth data
+        localStorage.removeItem('offlineAuth');
+
+        toast({
+          title: "Utloggad",
+          description: "Du har loggats ut",
+        });
+
+        // Redirect to auth page
+        setLocation("/auth");
+      } else {
+        throw new Error("Kunde inte logga ut");
+      }
+    } catch (error) {
+      toast({
+        title: "Fel",
+        description: "Kunde inte logga ut",
+        variant: "destructive",
+      });
     }
   };
 
@@ -64,6 +99,18 @@ export default function Settings() {
               onCheckedChange={handleOfflineModeChange}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <Button 
+            variant="destructive" 
+            className="w-full"
+            onClick={handleLogout}
+          >
+            Logga ut
+          </Button>
         </CardContent>
       </Card>
     </div>
