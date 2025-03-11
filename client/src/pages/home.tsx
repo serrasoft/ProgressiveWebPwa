@@ -10,18 +10,24 @@ const quickLinks = [
   { title: "Boka lägenheten", href: "https://mail.docenten.se/bokning/docenten/lagenheten/", useInAppBrowser: true },
   { title: "Boka snickarboa", href: "https://mail.docenten.se/bokning/docenten/snickarboa/", useInAppBrowser: true },
   { title: "Inofficiell Facebookgrupp", href: "https://www.facebook.com/groups/1233199001206234/" },
-  { title: "Nyheter från styrelsen (login)", href: "https://mitthsb.hsb.se/mitthsb/oversikt/meddelanden-fran-styrelsen/" },
-  { title: "Mina bostadsuppgifter HSB (login)", href: "https://mitthsb.hsb.se/mitthsb/min-bostad/bostadsinformation/" },
+  { title: "Nyheter från styrelsen (login)", href: "https://mitthsb.hsb.se/mitthsb/oversikt/meddelanden-fran-styrelsen/", openInSystemBrowser: true },
+  { title: "Mina bostadsuppgifter HSB (login)", href: "https://mitthsb.hsb.se/mitthsb/min-bostad/bostadsinformation/", openInSystemBrowser: true },
 ];
 
 export default function Home() {
   const [, setLocation] = useLocation();
 
   const handleLinkClick = (link: typeof quickLinks[0]) => (e: React.MouseEvent) => {
-    if (link.useInAppBrowser) {
+    if (link.openInSystemBrowser) {
+      // Open in device's default browser
+      e.preventDefault();
+      window.open(link.href, '_system');
+    } else if (link.useInAppBrowser) {
+      // Open in in-app browser
       e.preventDefault();
       setLocation(`/browser?url=${encodeURIComponent(link.href)}`);
     }
+    // Otherwise, let the default behavior handle it (opens in new tab)
   };
 
   return (
