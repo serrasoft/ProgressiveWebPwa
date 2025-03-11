@@ -11,6 +11,67 @@ import { ZodError } from "zod";
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
+  // Add these endpoints before the existing routes
+  app.get("/api/profile", async (req, res) => {
+    try {
+      // For now, we'll use the test user since we haven't implemented auth yet
+      const [user] = await db.select().from(schema.users)
+        .where(eq(schema.users.username, 'testuser'));
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Return only the profile fields
+      res.json({
+        displayName: user.displayName,
+        apartmentNumber: user.apartmentNumber,
+        phoneNumber: user.phoneNumber,
+        offlineData: user.offlineData,
+      });
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+      res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  app.patch("/api/profile", async (req, res) => {
+    try {
+      // For now, we'll update the test user since we haven't implemented auth yet
+      const [user] = await db.select().from(schema.users)
+        .where(eq(schema.users.username, 'testuser'));
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Update the user's profile
+      const [updatedUser] = await db.update(schema.users)
+        .set({
+          displayName: req.body.displayName,
+          apartmentNumber: req.body.apartmentNumber,
+          phoneNumber: req.body.phoneNumber,
+          offlineData: {
+            ...user.offlineData,
+            ...req.body,
+            lastUpdated: new Date().toISOString(),
+          },
+        })
+        .where(eq(schema.users.id, user.id))
+        .returning();
+
+      res.json({
+        displayName: updatedUser.displayName,
+        apartmentNumber: updatedUser.apartmentNumber,
+        phoneNumber: updatedUser.phoneNumber,
+        offlineData: updatedUser.offlineData,
+      });
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
   // Add this endpoint before the existing routes
   app.get("/api/users/test", async (_req, res) => {
     try {
