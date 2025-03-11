@@ -1,10 +1,13 @@
 const CACHE_NAME = 'pwa-cache-v1';
+const OFFLINE_MODE_CACHE = 'pwa-offline-mode-cache';
+
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
   '/src/main.tsx',
-  '/src/index.css'
+  '/src/index.css',
+  '/api/profile'  // Cache profile data for offline use
 ];
 
 self.addEventListener('install', event => {
@@ -21,7 +24,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
+          if (cacheName !== CACHE_NAME && cacheName !== OFFLINE_MODE_CACHE) {
             return caches.delete(cacheName);
           }
         })
@@ -30,14 +33,61 @@ self.addEventListener('activate', event => {
   );
 });
 
+self.addEventListener('message', event => {
+  if (event.data.type === 'ENABLE_OFFLINE_MODE') {
+    // Cache all responses when offline mode is enabled
+    caches.open(OFFLINE_MODE_CACHE).then(cache => {
+      // Cache API responses
+      fetch('/api/profile')
+        .then(response => {
+          cache.put('/api/profile', response.clone());
+        })
+        .catch(console.error);
+    });
+  }
+});
+
 self.addEventListener('fetch', event => {
+  const isApiRequest = event.request.url.includes('/api/');
+  const offlineModeEnabled = localStorage.getItem('offlineMode') === 'true';
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
+        // Return cached response if available
         if (response) {
           return response;
         }
-        return fetch(event.request);
+
+        // Clone the request because it can only be used once
+        const fetchRequest = event.request.clone();
+
+        return fetch(fetchRequest).then(response => {
+          // Check if response is valid
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+
+          // Clone the response because it can only be used once
+          const responseToCache = response.clone();
+
+          // Cache the response if offline mode is enabled or it's a static asset
+          if (offlineModeEnabled || !isApiRequest) {
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+          }
+
+          return response;
+        })
+        .catch(error => {
+          // If offline and it's an API request, try to return cached data
+          if (isApiRequest) {
+            return caches.match(event.request);
+          }
+          throw error;
+        });
       })
   );
 });

@@ -1,8 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useTheme } from "@/components/theme-provider";
+import { useState, useEffect } from "react";
 
 export default function Settings() {
+  const { theme, setTheme } = useTheme();
+  const [offlineMode, setOfflineMode] = useState(false);
+
+  // Load offline mode setting from localStorage
+  useEffect(() => {
+    const savedOfflineMode = localStorage.getItem('offlineMode') === 'true';
+    setOfflineMode(savedOfflineMode);
+  }, []);
+
+  const handleOfflineModeChange = (enabled: boolean) => {
+    setOfflineMode(enabled);
+    localStorage.setItem('offlineMode', enabled.toString());
+
+    if (enabled) {
+      // Cache important resources for offline use
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.active?.postMessage({
+            type: 'ENABLE_OFFLINE_MODE'
+          });
+        });
+      }
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Inställningar</h1>
@@ -19,7 +46,10 @@ export default function Settings() {
                 Aktivera mörkt läge för appen
               </p>
             </div>
-            <Switch />
+            <Switch 
+              checked={theme === 'dark'}
+              onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -29,7 +59,10 @@ export default function Settings() {
                 Aktivera offline-funktionalitet
               </p>
             </div>
-            <Switch defaultChecked />
+            <Switch 
+              checked={offlineMode}
+              onCheckedChange={handleOfflineModeChange}
+            />
           </div>
         </CardContent>
       </Card>
