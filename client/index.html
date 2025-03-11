@@ -6,7 +6,7 @@
     <title>BRF Docenten</title>
     <meta name="description" content="BRF Docenten - Bostadsrättsförening i Stockholm" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#00366D" />
     <!-- Cross-browser compatibility -->
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <!-- Mobile web app capable -->
@@ -14,11 +14,66 @@
     <!-- iOS specific -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <style>
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #00366D;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.3s ease-out;
+      }
+      #loading-screen.fade-out {
+        opacity: 0;
+      }
+      .loader {
+        width: 48px;
+        height: 48px;
+        border: 5px solid #FFF;
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        animation: rotation 1s linear infinite;
+        margin-bottom: 16px;
+      }
+      .loader-text {
+        color: white;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 16px;
+      }
+      @keyframes rotation {
+        0% { transform: rotate(0deg) }
+        100% { transform: rotate(360deg) }
+      }
+    </style>
   </head>
   <body>
+    <div id="loading-screen">
+      <div class="loader"></div>
+      <div class="loader-text">Laddar...</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Hide loading screen once app is loaded
+      window.addEventListener('load', () => {
+        // Give a slight delay to ensure React has mounted
+        setTimeout(() => {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.classList.add('fade-out');
+            // Remove from DOM after fade animation
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 300);
+          }
+        }, 500);
+      });
+
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
