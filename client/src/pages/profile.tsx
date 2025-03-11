@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ export default function Profile() {
   };
 
   // Load saved profile data when component mounts
-  useState(() => {
+  useEffect(() => {
     try {
       // Try to load offline data first
       const savedData = localStorage.getItem('profileData');
@@ -86,7 +86,7 @@ export default function Profile() {
     } catch (error) {
       console.error('Error loading profile data:', error);
     }
-  }, []);
+  }, []); // Empty dependency array means this effect runs once on mount
 
   return (
     <div className="space-y-4">
