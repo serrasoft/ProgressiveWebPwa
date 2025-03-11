@@ -9,7 +9,7 @@ interface AdminAuthState {
 }
 
 // In a real application, this would be properly hashed and stored securely
-const ADMIN_PASSWORD = 'brf-admin-2024';
+const ADMIN_PASSWORD = 'Bergakungen2025';
 
 export const useAdminAuth = create<AdminAuthState>()(
   persist(
