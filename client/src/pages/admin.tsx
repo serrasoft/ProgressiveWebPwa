@@ -31,7 +31,6 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const { isAuthenticated, login, logout } = useAdminAuth();
 
-  // Separate form for notifications
   const notificationForm = useForm<NotificationForm>({
     resolver: zodResolver(notificationSchema),
     defaultValues: {
@@ -39,14 +38,15 @@ export default function Admin() {
       body: "",
       link: "",
     },
+    mode: "onChange"
   });
 
-  // Separate form for login
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       password: "",
     },
+    mode: "onChange"
   });
 
   // Reset forms when authentication state changes
@@ -137,7 +137,7 @@ export default function Admin() {
           </CardHeader>
           <CardContent>
             <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+              <form key="login-form" onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                 <FormField
                   control={loginForm.control}
                   name="password"
@@ -180,7 +180,7 @@ export default function Admin() {
         </CardHeader>
         <CardContent>
           <Form {...notificationForm}>
-            <form onSubmit={notificationForm.handleSubmit(onSubmit)} className="space-y-4">
+            <form key="notification-form" onSubmit={notificationForm.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={notificationForm.control}
                 name="title"
