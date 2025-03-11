@@ -17,13 +17,22 @@ const quickLinks = [
 export default function Home() {
   const [, setLocation] = useLocation();
 
+  // Check if running as installed PWA
+  const isInstalledPWA = window.matchMedia('(display-mode: standalone)').matches;
+
+  // Check if running on iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   const handleLinkClick = (link: typeof quickLinks[0]) => (e: React.MouseEvent) => {
     if (link.openInSystemBrowser) {
-      // Open in device's default browser
       e.preventDefault();
-      window.open(link.href, '_system');
+      // For iOS PWA, we need to use special handling to open Safari
+      if (isIOS && isInstalledPWA) {
+        window.location.href = link.href;
+      } else {
+        window.open(link.href, '_system');
+      }
     } else if (link.useInAppBrowser) {
-      // Open in in-app browser
       e.preventDefault();
       setLocation(`/browser?url=${encodeURIComponent(link.href)}`);
     }
