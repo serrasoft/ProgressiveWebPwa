@@ -31,6 +31,7 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const { isAuthenticated, login, logout } = useAdminAuth();
 
+  // Separate form for notifications
   const notificationForm = useForm<NotificationForm>({
     resolver: zodResolver(notificationSchema),
     defaultValues: {
@@ -40,6 +41,7 @@ export default function Admin() {
     },
   });
 
+  // Separate form for login
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -47,7 +49,7 @@ export default function Admin() {
     },
   });
 
-  const { data: notifications = [], refetch } = useQuery<Notification[]>({
+  const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
   });
 
@@ -78,7 +80,11 @@ export default function Admin() {
         title: "Klart",
         description: "Notisen har skickats",
       });
-      notificationForm.reset();
+      notificationForm.reset({
+        title: "",
+        body: "",
+        link: "",
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
     } catch (error) {
       console.error('Failed to send notification:', error);
@@ -96,6 +102,7 @@ export default function Admin() {
         title: "Välkommen",
         description: "Du är nu inloggad som administratör",
       });
+      loginForm.reset();
     } else {
       toast({
         title: "Fel",
