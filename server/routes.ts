@@ -3,9 +3,26 @@ import { createServer, type Server } from "http";
 import webpush from "web-push";
 import { insertPushSubscriptionSchema } from "@shared/schema";
 import { storage } from "./storage";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import * as schema from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // Add this endpoint before the existing routes
+  app.get("/api/users/test", async (_req, res) => {
+    try {
+      const [user] = await db.select().from(schema.users).where(eq(schema.users.username, 'testuser'));
+      if (!user) {
+        return res.status(404).json({ error: "Test user not found" });
+      }
+      res.json({ id: user.id });
+    } catch (error) {
+      console.error('Failed to fetch test user:', error);
+      res.status(500).json({ error: "Failed to fetch test user" });
+    }
+  });
 
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     console.warn("Warning: VAPID keys not configured - push notifications will be unavailable");
@@ -18,7 +35,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     process.env.VAPID_PRIVATE_KEY
   );
 
-  // Add GET endpoint for notifications
   app.get("/api/notifications", async (_req, res) => {
     try {
       const notifications = await storage.getNotifications();
@@ -33,6 +49,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notifications/subscribe", async (req, res) => {
     try {
       console.log('Received subscription request:', req.body);
+
+      // First verify the user exists
+      const user = await storage.getUser(req.body.userId);
+      if (!user) {
+        console.error('User not found:', req.body.userId);
+        return res.status(400).json({ error: "Invalid user ID" });
+      }
+
       const parsed = insertPushSubscriptionSchema.parse(req.body);
       console.log('Creating push subscription:', parsed);
       const subscription = await storage.createPushSubscription(parsed);

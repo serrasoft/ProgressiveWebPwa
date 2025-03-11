@@ -31,15 +31,18 @@ export async function subscribeToNotifications() {
 
     console.log('Push subscription created:', subscription);
 
+    // Get the test user ID from our earlier insert
+    const userResponse = await fetch("/api/users/test");
+    const userData = await userResponse.json();
+
     const response = await fetch("/api/notifications/subscribe", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        userId: 1, // TODO: Replace with actual user ID
-        subscription: subscription.toJSON(), // Convert subscription to JSON
-        active: true, // Ensure subscription is marked as active
+        userId: userData.id,
+        subscription: subscription.toJSON(),
       }),
     });
 
