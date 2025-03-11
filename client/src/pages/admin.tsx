@@ -130,7 +130,12 @@ export default function Admin() {
                     <FormItem>
                       <FormLabel>Lösenord</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="Ange lösenord..." {...field} />
+                        <Input 
+                          type="password" 
+                          placeholder="Ange lösenord..." 
+                          autoComplete="current-password"
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
