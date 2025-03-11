@@ -32,6 +32,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/notifications/subscribe", async (req, res) => {
     try {
+      console.log('Received subscription request:', req.body);
       const parsed = insertPushSubscriptionSchema.parse(req.body);
       console.log('Creating push subscription:', parsed);
       const subscription = await storage.createPushSubscription(parsed);

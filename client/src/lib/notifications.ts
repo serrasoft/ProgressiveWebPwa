@@ -39,16 +39,18 @@ export async function subscribeToNotifications() {
       body: JSON.stringify({
         userId: 1, // TODO: Replace with actual user ID
         subscription: subscription.toJSON(), // Convert subscription to JSON
+        active: true, // Ensure subscription is marked as active
       }),
     });
 
     if (!response.ok) {
-      throw new Error("Failed to register push subscription with server");
+      const errorData = await response.json();
+      throw new Error(`Failed to register push subscription with server: ${errorData.error || response.statusText}`);
     }
 
     return subscription;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Subscription error:', error);
-    throw new Error("Failed to subscribe to push notifications: " + error.message);
+    throw new Error("Failed to subscribe to push notifications: " + (error.message || error));
   }
 }
