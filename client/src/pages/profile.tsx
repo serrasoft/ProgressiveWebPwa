@@ -162,7 +162,7 @@ export default function Profile() {
                     <FormItem>
                       <FormLabel>Telefonnummer</FormLabel>
                       <FormControl>
-                        <Input placeholder="exemplevis mobilnummer" {...field} />
+                        <Input placeholder="exempelvis mobilnummer" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
