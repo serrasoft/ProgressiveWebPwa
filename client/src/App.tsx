@@ -9,6 +9,7 @@ import Profile from "./pages/profile";
 import Settings from "./pages/settings";
 import Browser from "./pages/browser";
 import NotFound from "./pages/not-found";
+import React from "react";
 
 function Router() {
   return (
@@ -27,9 +28,11 @@ function Router() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
-    </QueryClientProvider>
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <Router />
+        <Toaster />
+      </QueryClientProvider>
+    </React.StrictMode>
   );
 }
