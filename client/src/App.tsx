@@ -8,6 +8,7 @@ import Notifications from "./pages/notifications";
 import Profile from "./pages/profile";
 import Settings from "./pages/settings";
 import Browser from "./pages/browser";
+import Admin from "./pages/admin";
 import NotFound from "./pages/not-found";
 import React from "react";
 
@@ -20,6 +21,7 @@ function Router() {
         <Route path="/profile" component={Profile} />
         <Route path="/settings" component={Settings} />
         <Route path="/browser" component={Browser} />
+        <Route path="/admin" component={Admin} />
         <Route component={NotFound} />
       </Switch>
     </MobileLayout>
