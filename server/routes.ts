@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import webpush from "web-push";
-import { insertPushSubscriptionSchema, insertUserSchema } from "@shared/schema";
+import { insertPushSubscriptionSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -10,7 +10,7 @@ import { ZodError } from "zod";
 import session from "express-session";
 
 // Middleware to check if user is authenticated
-const requireAuth = (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
+const requireAuth = (req: any, res: any, next: any) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -20,12 +20,20 @@ const requireAuth = (req: Express.Request, res: Express.Response, next: Express.
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // Setup session middleware
+  // Set trust proxy for deployed environment
+  app.set('trust proxy', 1);
+
+  // Setup session middleware with secure settings
   app.use(session({
     secret: 'your-secret-key',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: process.env.NODE_ENV === 'production' }
+    cookie: {
+      secure: true, // Required for HTTPS
+      sameSite: 'none', // Required for cross-domain
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true
+    }
   }));
 
   // Auth routes

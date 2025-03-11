@@ -12,13 +12,22 @@ export function ProtectedRoute({
 
   useEffect(() => {
     // Check if user is authenticated by trying to fetch profile
-    fetch("/api/profile")
+    fetch("/api/profile", {
+      credentials: 'include' // Important for session cookies
+    })
       .then(res => {
         if (!res.ok) {
-          setLocation("/auth");
+          throw new Error('Unauthorized');
         }
+        return res.json();
       })
-      .catch(() => setLocation("/auth"));
+      .then(data => {
+        // Profile loaded successfully, user is authenticated
+      })
+      .catch(() => {
+        // If there's an error or unauthorized, redirect to auth
+        setLocation("/auth");
+      });
   }, [setLocation]);
 
   return <Component {...props} />;
