@@ -38,7 +38,7 @@ export async function subscribeToNotifications() {
       },
       body: JSON.stringify({
         userId: 1, // TODO: Replace with actual user ID
-        subscription: subscription,
+        subscription: subscription.toJSON(), // Convert subscription to JSON
       }),
     });
 

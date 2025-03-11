@@ -23,11 +23,13 @@ export default function Notifications() {
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/notifications');
       console.log('Notifications API response:', response);
-      if (!Array.isArray(response)) {
-        console.warn('Expected array of notifications, got:', response);
-        return [];
+      // If response is a Response object, parse it
+      if (response instanceof Response) {
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
       }
-      return response;
+      // If it's already parsed JSON, ensure it's an array
+      return Array.isArray(response) ? response : [];
     },
   });
 
