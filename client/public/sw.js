@@ -63,6 +63,7 @@ self.addEventListener('push', event => {
     badge: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f514.svg',
     vibrate: [100, 50, 100],
     data: {
+      url: notificationData.url || '/',
       dateOfArrival: Date.now(),
       primaryKey: 1
     }
@@ -76,7 +77,23 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   console.log('Notification clicked:', event);
   event.notification.close();
+
+  // Get the URL from the notification data
+  const url = event.notification.data?.url || '/';
+
   event.waitUntil(
-    clients.openWindow('/')
+    clients.matchAll({ type: 'window' }).then(windowClients => {
+      // Check if there is already a window/tab open with the target URL
+      for (var i = 0; i < windowClients.length; i++) {
+        var client = windowClients[i];
+        if (client.url === url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // If no window/tab is available, open one
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    })
   );
 });

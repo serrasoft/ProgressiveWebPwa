@@ -100,9 +100,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No active subscriptions found" });
       }
 
+      // First save the notification to the database
+      const [notification] = await db.insert(schema.notifications)
+        .values({
+          title: req.body.title,
+          link: req.body.link,
+          createdAt: new Date(),
+        })
+        .returning();
+
+      console.log('Created notification:', notification);
+
       const payload = JSON.stringify({
-        title: req.body.title || "New Notification",
-        body: req.body.body || "You have a new notification",
+        title: req.body.title,
+        body: req.body.body,
+        url: req.body.link || '/', // Use provided link or default to home
       });
       console.log('Sending notification payload:', payload);
 
