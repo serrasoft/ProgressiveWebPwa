@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,21 @@ export default function Admin() {
       password: "",
     },
   });
+
+  // Reset forms when authentication state changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      notificationForm.reset({
+        title: "",
+        body: "",
+        link: "",
+      });
+    } else {
+      loginForm.reset({
+        password: "",
+      });
+    }
+  }, [isAuthenticated]);
 
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
