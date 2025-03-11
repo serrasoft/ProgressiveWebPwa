@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -8,12 +7,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { User, Edit2, Save } from "lucide-react";
+import { Edit2, Save } from "lucide-react";
 import { z } from "zod";
 
 const profileSchema = z.object({
   displayName: z.string().min(1, "Namn måste anges"),
-  apartmentNumber: z.string().optional(),
+  apartmentNumber: z.string()
+    .refine(val => !val || (Number(val) >= 1 && Number(val) <= 165), 
+      "Lägenhetsnummer måste vara mellan 1 och 165"),
+  port: z.string().optional(),
   phoneNumber: z.string().optional(),
 });
 
@@ -28,6 +30,7 @@ export default function Profile() {
     defaultValues: {
       displayName: "",
       apartmentNumber: "",
+      port: "",
       phoneNumber: "",
     },
   });
@@ -106,20 +109,7 @@ export default function Profile() {
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex items-center space-x-4">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src="https://github.com/shadcn.png" alt="Profilbild" />
-              <AvatarFallback>
-                <User className="h-10 w-10" />
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle>{form.watch("displayName") || "Ej angivet"}</CardTitle>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {isEditing ? (
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -130,7 +120,7 @@ export default function Profile() {
                     <FormItem>
                       <FormLabel>Namn</FormLabel>
                       <FormControl>
-                        <Input placeholder="Ange ditt namn..." {...field} />
+                        <Input placeholder="ditt namn" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -142,9 +132,23 @@ export default function Profile() {
                   name="apartmentNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Lägenhetsnummer</FormLabel>
+                      <FormLabel>HSB lägenhetsnummer</FormLabel>
                       <FormControl>
-                        <Input placeholder="T.ex. 1102..." {...field} />
+                        <Input placeholder="nummer skall vara mellan 1 och 165" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="port"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Port</FormLabel>
+                      <FormControl>
+                        <Input placeholder="portnummer" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -158,7 +162,7 @@ export default function Profile() {
                     <FormItem>
                       <FormLabel>Telefonnummer</FormLabel>
                       <FormControl>
-                        <Input placeholder="T.ex. 0701234567..." {...field} />
+                        <Input placeholder="exempelvis mobilnummer" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -179,9 +183,15 @@ export default function Profile() {
                 </p>
               </div>
               <div>
-                <h3 className="font-medium">Lägenhetsnummer</h3>
+                <h3 className="font-medium">HSB lägenhetsnummer</h3>
                 <p className="text-sm text-muted-foreground">
                   {form.watch("apartmentNumber") || "Ej angivet"}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-medium">Port</h3>
+                <p className="text-sm text-muted-foreground">
+                  {form.watch("port") || "Ej angivet"}
                 </p>
               </div>
               <div>
