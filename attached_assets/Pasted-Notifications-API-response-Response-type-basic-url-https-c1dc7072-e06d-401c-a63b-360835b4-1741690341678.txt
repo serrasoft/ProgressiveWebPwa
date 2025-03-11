@@ -1,0 +1,255 @@
+Notifications API response: 
+Response {type: 'basic', url: 'https://c1dc7072-e06d-401c-a63b-360835b4c108-00-2n21qmbutt71b.riker.replit.dev/api/notifications', redirected: false, status: 200, ok: true, …}
+body
+: 
+(...)
+bodyUsed
+: 
+true
+headers
+: 
+Headers {}
+ok
+: 
+true
+redirected
+: 
+false
+status
+: 
+200
+statusText
+: 
+"OK"
+type
+: 
+"basic"
+url
+: 
+"https://c1dc7072-e06d-401c-a63b-360835b4c108-00-2n21qmbutt71b.riker.replit.dev/api/notifications"
+[[Prototype]]
+: 
+Response
+arrayBuffer
+: 
+ƒ arrayBuffer()
+blob
+: 
+ƒ blob()
+body
+: 
+(...)
+bodyUsed
+: 
+(...)
+bytes
+: 
+ƒ bytes()
+clone
+: 
+ƒ clone()
+formData
+: 
+ƒ formData()
+headers
+: 
+(...)
+json
+: 
+ƒ json()
+length
+: 
+0
+name
+: 
+"json"
+arguments
+: 
+(...)
+caller
+: 
+(...)
+[[Prototype]]
+: 
+ƒ ()
+[[Scopes]]
+: 
+Scopes[0]
+ok
+: 
+(...)
+redirected
+: 
+(...)
+status
+: 
+(...)
+statusText
+: 
+(...)
+text
+: 
+ƒ text()
+length
+: 
+0
+name
+: 
+"text"
+arguments
+: 
+[Exception: TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them at text.invokeGetter (<anonymous>:3:28)]
+caller
+: 
+[Exception: TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them at text.invokeGetter (<anonymous>:3:28)]
+[[Prototype]]
+: 
+ƒ ()
+[[Scopes]]
+: 
+Scopes[0]
+type
+: 
+(...)
+url
+: 
+(...)
+constructor
+: 
+ƒ Response()
+error
+: 
+ƒ error()
+json
+: 
+ƒ json()
+length
+: 
+1
+name
+: 
+"json"
+arguments
+: 
+[Exception: TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them at json.invokeGetter (<anonymous>:3:28)]
+caller
+: 
+[Exception: TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them at json.invokeGetter (<anonymous>:3:28)]
+[[Prototype]]
+: 
+ƒ ()
+[[Scopes]]
+: 
+Scopes[0]
+redirect
+: 
+ƒ redirect()
+arguments
+: 
+null
+caller
+: 
+null
+length
+: 
+0
+name
+: 
+"Response"
+prototype
+: 
+Response {…}
+[[Prototype]]
+: 
+ƒ ()
+[[Scopes]]
+: 
+Scopes[0]
+No properties
+Symbol(Symbol.toStringTag)
+: 
+"Response"
+get body
+: 
+ƒ body()
+length
+: 
+0
+name
+: 
+"get body"
+arguments
+: 
+[Exception: TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them at get body.invokeGetter (<anonymous>:3:28)]
+caller
+: 
+[Exception: TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them at get body.invokeGetter (<anonymous>:3:28)]
+[[Prototype]]
+: 
+ƒ ()
+[[Scopes]]
+: 
+Scopes[0]
+get bodyUsed
+: 
+ƒ bodyUsed()
+length
+: 
+0
+name
+: 
+"get bodyUsed"
+arguments
+: 
+[Exception: TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them at get bodyUsed.invokeGetter (<anonymous>:3:28)]
+caller
+: 
+(...)
+[[Prototype]]
+: 
+ƒ ()
+[[Scopes]]
+: 
+Scopes[0]
+get headers
+: 
+ƒ headers()
+get ok
+: 
+ƒ ok()
+get redirected
+: 
+ƒ redirected()
+get status
+: 
+ƒ status()
+length
+: 
+0
+name
+: 
+"get status"
+arguments
+: 
+[Exception: TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them at get status.invokeGetter (<anonymous>:3:28)]
+caller
+: 
+(...)
+[[Prototype]]
+: 
+ƒ ()
+[[Scopes]]
+: 
+Scopes[0]
+get statusText
+: 
+ƒ statusText()
+get type
+: 
+ƒ type()
+get url
+: 
+ƒ url()
+[[Prototype]]
+: 
+Object

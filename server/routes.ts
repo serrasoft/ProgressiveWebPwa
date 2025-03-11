@@ -6,6 +6,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import * as schema from "@shared/schema";
+import { ZodError } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -68,7 +69,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid user ID" });
       }
 
-      const parsed = insertPushSubscriptionSchema.parse(req.body);
+      let parsed;
+      try {
+        parsed = insertPushSubscriptionSchema.parse(req.body);
+        console.log('Validated subscription data:', parsed);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          console.error('Subscription validation error:', error.errors);
+          return res.status(400).json({ error: "Invalid subscription data", details: error.errors });
+        }
+        throw error;
+      }
+
       console.log('Creating push subscription:', parsed);
       const subscription = await storage.createPushSubscription(parsed);
       console.log('Push subscription created:', subscription);

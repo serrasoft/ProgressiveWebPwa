@@ -28,18 +28,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPushSubscription(data: any): Promise<PushSubscription> {
-    const [subscription] = await db
-      .insert(pushSubscriptions)
-      .values(data)
-      .returning();
-    return subscription;
+    console.log('Creating push subscription with data:', data);
+    try {
+      const [subscription] = await db
+        .insert(pushSubscriptions)
+        .values(data)
+        .returning();
+      console.log('Successfully created push subscription:', subscription);
+      return subscription;
+    } catch (error) {
+      console.error('Failed to create push subscription:', error);
+      throw error;
+    }
   }
 
   async getActivePushSubscriptions(): Promise<PushSubscription[]> {
-    return db
+    const subscriptions = await db
       .select()
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.active, true));
+    console.log('Retrieved active subscriptions:', subscriptions);
+    return subscriptions;
   }
 
   async getNotifications(): Promise<Notification[]> {
