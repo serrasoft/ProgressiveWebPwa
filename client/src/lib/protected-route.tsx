@@ -21,9 +21,6 @@ export function ProtectedRoute({
         }
         return res.json();
       })
-      .then(data => {
-        // Profile loaded successfully, user is authenticated
-      })
       .catch(() => {
         // If there's an error or unauthorized, redirect to auth
         setLocation("/auth");
