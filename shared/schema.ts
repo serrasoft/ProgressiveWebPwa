@@ -4,10 +4,11 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
   password: text("password").notNull(),
   displayName: varchar("display_name", { length: 100 }),
   apartmentNumber: varchar("apartment_number", { length: 10 }),
+  port: varchar("port", { length: 10 }),
   phoneNumber: varchar("phone_number", { length: 20 }),
   // Store additional offline-capable profile data as JSON
   offlineData: jsonb("offline_data"),
@@ -29,11 +30,20 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
+  email: true,
   password: true,
-  displayName: true,
-  apartmentNumber: true,
-  phoneNumber: true,
+}).extend({
+  email: z.string().email("Ogiltig e-postadress"),
+  // We don't validate password since it's pre-filled
+});
+
+export const updateProfileSchema = z.object({
+  displayName: z.string().min(1, "Namn måste anges"),
+  apartmentNumber: z.string()
+    .refine(val => !val || (Number(val) >= 1 && Number(val) <= 165), 
+      "Lägenhetsnummer måste vara mellan 1 och 165"),
+  port: z.string().optional(),
+  phoneNumber: z.string().optional(),
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).pick({
@@ -48,6 +58,7 @@ export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpdateProfile = z.infer<typeof updateProfileSchema>;
 export type User = typeof users.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;

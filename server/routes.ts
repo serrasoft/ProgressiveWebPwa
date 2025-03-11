@@ -7,25 +7,100 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { ZodError } from "zod";
+import session from "express-session";
+
+// Middleware to check if user is authenticated
+const requireAuth = (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // Add these endpoints before the existing routes
-  app.get("/api/profile", async (req, res) => {
+  // Setup session middleware
+  app.use(session({
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: process.env.NODE_ENV === 'production' }
+  }));
+
+  // Auth routes
+  app.post("/api/register", async (req, res) => {
     try {
-      // For now, we'll use the test user since we haven't implemented auth yet
-      const [user] = await db.select().from(schema.users)
-        .where(eq(schema.users.username, 'testuser'));
+      const { email } = req.body;
+
+      // Check if user already exists
+      const existingUser = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.email, email));
+
+      if (existingUser.length > 0) {
+        return res.status(400).json({ message: "E-postadressen är redan registrerad" });
+      }
+
+      // Create new user
+      const [user] = await db.insert(schema.users)
+        .values({
+          email,
+          password: "brf-docenten-2024", // Pre-filled password
+          offlineData: {}
+        })
+        .returning();
+
+      req.session.userId = user.id;
+      res.status(201).json({ success: true });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: "Kunde inte skapa konto" });
+    }
+  });
+
+  app.post("/api/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.email, email));
+
+      if (!user || user.password !== password) {
+        return res.status(401).json({ message: "Fel e-postadress eller lösenord" });
+      }
+
+      req.session.userId = user.id;
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: "Kunde inte logga in" });
+    }
+  });
+
+  app.post("/api/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+
+  // Protected profile routes
+  app.get("/api/profile", requireAuth, async (req, res) => {
+    try {
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.id, req.session.userId!));
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Return only the profile fields
       res.json({
+        email: user.email,
         displayName: user.displayName,
         apartmentNumber: user.apartmentNumber,
+        port: user.port,
         phoneNumber: user.phoneNumber,
         offlineData: user.offlineData,
       });
@@ -35,21 +110,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/profile", async (req, res) => {
+  app.patch("/api/profile", requireAuth, async (req, res) => {
     try {
-      // For now, we'll update the test user since we haven't implemented auth yet
-      const [user] = await db.select().from(schema.users)
-        .where(eq(schema.users.username, 'testuser'));
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.id, req.session.userId!));
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Update the user's profile
       const [updatedUser] = await db.update(schema.users)
         .set({
           displayName: req.body.displayName,
           apartmentNumber: req.body.apartmentNumber,
+          port: req.body.port,
           phoneNumber: req.body.phoneNumber,
           offlineData: {
             ...user.offlineData,
@@ -57,12 +132,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastUpdated: new Date().toISOString(),
           },
         })
-        .where(eq(schema.users.id, user.id))
+        .where(eq(schema.users.id, req.session.userId!))
         .returning();
 
       res.json({
         displayName: updatedUser.displayName,
         apartmentNumber: updatedUser.apartmentNumber,
+        port: updatedUser.port,
         phoneNumber: updatedUser.phoneNumber,
         offlineData: updatedUser.offlineData,
       });
@@ -72,7 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add this endpoint before the existing routes
+  // Add these endpoints before the existing routes
   app.get("/api/users/test", async (_req, res) => {
     try {
       // First try to find existing test user
