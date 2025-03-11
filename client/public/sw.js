@@ -17,20 +17,28 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
   );
+  // Force activation of the new service worker
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
   console.log('Service Worker activating...');
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME && cacheName !== OFFLINE_MODE_CACHE) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    Promise.all([
+      // Take control of all clients/pages immediately
+      clients.claim(),
+      // Clean up old caches
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (cacheName !== CACHE_NAME && cacheName !== OFFLINE_MODE_CACHE) {
+              console.log('Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ])
   );
 });
 
@@ -42,6 +50,18 @@ self.addEventListener('fetch', event => {
       .then(response => {
         // Return cached response if available
         if (response) {
+          // For API requests, also check for fresh data
+          if (isApiRequest) {
+            fetch(event.request.clone())
+              .then(freshResponse => {
+                if (freshResponse && freshResponse.status === 200) {
+                  caches.open(CACHE_NAME).then(cache => {
+                    cache.put(event.request, freshResponse.clone());
+                  });
+                }
+              })
+              .catch(() => {/* Use cached response */});
+          }
           return response;
         }
 
@@ -107,8 +127,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body: notificationData.body || 'New notification',
-    icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f514.svg',
-    badge: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f514.svg',
+    icon: '/icon.svg',
+    badge: '/icon.svg',
     vibrate: [100, 50, 100],
     data: {
       url: notificationData.url || '/',
@@ -118,7 +138,7 @@ self.addEventListener('push', event => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(notificationData.title || 'PWA App', options)
+    self.registration.showNotification(notificationData.title || 'Bergakungen', options)
   );
 });
 
