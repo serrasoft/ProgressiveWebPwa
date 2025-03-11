@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import webpush from "web-push";
-import { insertPushSubscriptionSchema } from "@shared/schema";
+import { insertPushSubscriptionSchema, insertUserSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -13,14 +13,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Add this endpoint before the existing routes
   app.get("/api/users/test", async (_req, res) => {
     try {
-      const [user] = await db.select().from(schema.users).where(eq(schema.users.username, 'testuser'));
+      // First try to find existing test user
+      let [user] = await db.select().from(schema.users).where(eq(schema.users.username, 'testuser'));
+
+      // If no test user exists, create one
       if (!user) {
-        return res.status(404).json({ error: "Test user not found" });
+        console.log('Creating test user...');
+        const testUser = {
+          username: 'testuser',
+          password: 'testpass',
+          displayName: 'Test User',
+        };
+        [user] = await db.insert(schema.users).values(testUser).returning();
+        console.log('Test user created:', user);
       }
+
       res.json({ id: user.id });
     } catch (error) {
-      console.error('Failed to fetch test user:', error);
-      res.status(500).json({ error: "Failed to fetch test user" });
+      console.error('Failed to fetch/create test user:', error);
+      res.status(500).json({ error: "Failed to fetch/create test user" });
     }
   });
 

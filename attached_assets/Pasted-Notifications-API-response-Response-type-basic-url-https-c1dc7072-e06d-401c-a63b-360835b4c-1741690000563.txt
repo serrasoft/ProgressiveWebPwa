@@ -1,0 +1,43 @@
+Notifications API response: Response {type: 'basic', url: 'https://c1dc7072-e06d-401c-a63b-360835b4c108-00-2n21qmbutt71b.riker.replit.dev/api/notifications', redirected: false, status: 200, ok: true, …}body: (...)bodyUsed: trueheaders: Headers[[Prototype]]: Headersok: trueredirected: falsestatus: 200statusText: "OK"type: "basic"url: "https://c1dc7072-e06d-401c-a63b-360835b4c108-00-2n21qmbutt71b.riker.replit.dev/api/notifications"[[Prototype]]: Response
+queryClient.ts:15 
+            
+            
+           POST https://c1dc7072-e06d-401c-a63b-360835b4c108-00-2n21qmbutt71b.riker.replit.dev/api/notifications/send 400 (Bad Request)
+apiRequest @ queryClient.ts:15
+sendTestNotification @ notifications.tsx:94
+callCallback2 @ chunk-WERSD76P.js?v=3aac0f78:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=3aac0f78:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=3aac0f78:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=3aac0f78:3736
+executeDispatch @ chunk-WERSD76P.js?v=3aac0f78:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=3aac0f78:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=3aac0f78:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=3aac0f78:7051
+(anonymous) @ chunk-WERSD76P.js?v=3aac0f78:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=3aac0f78:18913
+batchedUpdates @ chunk-WERSD76P.js?v=3aac0f78:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=3aac0f78:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=3aac0f78:5478
+dispatchEvent @ chunk-WERSD76P.js?v=3aac0f78:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=3aac0f78:5449Understand this errorAI
+notifications.tsx:104 Failed to send test notification: Error: 400: {"error":"No active subscriptions found"}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async sendTestNotification (notifications.tsx:94:24)
+sendTestNotification @ notifications.tsx:104
+await in sendTestNotification
+callCallback2 @ chunk-WERSD76P.js?v=3aac0f78:3674
+invokeGuardedCallbackDev @ chunk-WERSD76P.js?v=3aac0f78:3699
+invokeGuardedCallback @ chunk-WERSD76P.js?v=3aac0f78:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-WERSD76P.js?v=3aac0f78:3736
+executeDispatch @ chunk-WERSD76P.js?v=3aac0f78:7014
+processDispatchQueueItemsInOrder @ chunk-WERSD76P.js?v=3aac0f78:7034
+processDispatchQueue @ chunk-WERSD76P.js?v=3aac0f78:7043
+dispatchEventsForPlugins @ chunk-WERSD76P.js?v=3aac0f78:7051
+(anonymous) @ chunk-WERSD76P.js?v=3aac0f78:7174
+batchedUpdates$1 @ chunk-WERSD76P.js?v=3aac0f78:18913
+batchedUpdates @ chunk-WERSD76P.js?v=3aac0f78:3579
+dispatchEventForPluginEventSystem @ chunk-WERSD76P.js?v=3aac0f78:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-WERSD76P.js?v=3aac0f78:5478
+dispatchEvent @ chunk-WERSD76P.js?v=3aac0f78:5472
+dispatchDiscreteEvent @ chunk-WERSD76P.js?v=3aac0f78:5449Understand this errorAI
