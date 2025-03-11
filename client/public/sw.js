@@ -5,6 +5,7 @@ const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/icon.svg',
   '/src/main.tsx',
   '/src/index.css',
   '/api/profile'  // Cache profile data for offline use
@@ -33,23 +34,8 @@ self.addEventListener('activate', event => {
   );
 });
 
-self.addEventListener('message', event => {
-  if (event.data.type === 'ENABLE_OFFLINE_MODE') {
-    // Cache all responses when offline mode is enabled
-    caches.open(OFFLINE_MODE_CACHE).then(cache => {
-      // Cache API responses
-      fetch('/api/profile')
-        .then(response => {
-          cache.put('/api/profile', response.clone());
-        })
-        .catch(console.error);
-    });
-  }
-});
-
 self.addEventListener('fetch', event => {
   const isApiRequest = event.request.url.includes('/api/');
-  const offlineModeEnabled = localStorage.getItem('offlineMode') === 'true';
 
   event.respondWith(
     caches.match(event.request)
@@ -71,13 +57,11 @@ self.addEventListener('fetch', event => {
           // Clone the response because it can only be used once
           const responseToCache = response.clone();
 
-          // Cache the response if offline mode is enabled or it's a static asset
-          if (offlineModeEnabled || !isApiRequest) {
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-          }
+          // Cache static assets and API responses when offline mode is enabled
+          caches.open(CACHE_NAME)
+            .then(cache => {
+              cache.put(event.request, responseToCache);
+            });
 
           return response;
         })
@@ -90,6 +74,20 @@ self.addEventListener('fetch', event => {
         });
       })
   );
+});
+
+self.addEventListener('message', event => {
+  if (event.data.type === 'ENABLE_OFFLINE_MODE') {
+    // Cache all responses when offline mode is enabled
+    caches.open(OFFLINE_MODE_CACHE).then(cache => {
+      // Cache API responses
+      fetch('/api/profile')
+        .then(response => {
+          cache.put('/api/profile', response.clone());
+        })
+        .catch(console.error);
+    });
+  }
 });
 
 self.addEventListener('push', event => {

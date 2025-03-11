@@ -1,12 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#00366D" rx="100"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#00366D" rx="64"/>
   <text 
-    x="50%" 
-    y="50%" 
-    dy=".1em"
-    fill="white"
-    text-anchor="middle"
-    dominant-baseline="middle"
-    style="font: bold 300px sans-serif"
+    x="256" 
+    y="256" 
+    fill="white" 
+    font-family="Arial, sans-serif" 
+    font-size="320" 
+    font-weight="bold" 
+    text-anchor="middle" 
+    dominant-baseline="central"
   >B</text>
 </svg>
