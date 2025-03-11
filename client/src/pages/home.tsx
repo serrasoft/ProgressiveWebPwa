@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
+import InstallPrompt from "@/components/install-prompt";
 
 const quickLinks = [
   { title: "Docenten.se", href: "https://www.hsb.se/sodertorn/brf/docenten/", useInAppBrowser: true },
@@ -26,6 +27,8 @@ export default function Home() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Välkommen tillbaka!</h1>
+
+      <InstallPrompt />
 
       <Card>
         <CardHeader>
