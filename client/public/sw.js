@@ -121,16 +121,20 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('push', event => {
-  console.log('Push event received:', event);
+  console.log('Push event received with data:', event.data ? event.data.text() : 'no payload');
 
   let notificationData = {};
   if (event.data) {
     try {
-      notificationData = event.data.json();
+      const text = event.data.text();
+      console.log('Received raw push data:', text);
+      notificationData = JSON.parse(text);
+      console.log('Parsed notification data:', notificationData);
     } catch (e) {
+      console.error('Error parsing notification data:', e);
       notificationData = {
         title: 'Ny notis',
-        body: event.data.text()
+        body: event.data.text() || 'Ny notis från Bergakungen'
       };
     }
   }
@@ -165,37 +169,55 @@ self.addEventListener('push', event => {
     ]
   };
 
+  console.log('Showing notification with options:', options);
+
   // Handle badging - set a badge on the app icon
   const showBadge = async () => {
     try {
       // First try to get all notifications
-      const notifications = await self.registration.getNotifications();
-      const count = notifications.length + 1; // Add 1 for the new notification
+      const response = await fetch('/api/notifications');
+      if (!response.ok) {
+        throw new Error('Failed to fetch notifications');
+      }
+      
+      const notificationsData = await response.json();
+      const count = Array.isArray(notificationsData) ? notificationsData.length : 0;
+      
+      console.log(`Setting badge count to ${count}`);
       
       // Check if the Badging API is supported
       if ('setAppBadge' in navigator) {
-        // We're in a service worker, so we need to use clients to get the window client
-        const windowClients = await clients.matchAll({ type: 'window' });
-        
-        // For each client (window), set the badge
-        windowClients.forEach(windowClient => {
-          windowClient.navigate(windowClient.url); // Refresh the client to apply badge
+        navigator.setAppBadge(count).then(() => {
+          console.log(`App badge set to ${count}`);
+        }).catch(err => {
+          console.error('Failed to set app badge:', err);
         });
+      } else if (self.navigator && 'setAppBadge' in self.navigator) {
+        self.navigator.setAppBadge(count);
+        console.log(`Service worker set app badge to ${count}`);
+      } else {
+        console.log('Badging API not available');
         
-        // Try to set the badge directly if possible
-        if (self.navigator && 'setAppBadge' in self.navigator) {
-          self.navigator.setAppBadge(count);
-        }
+        // Try to message clients to update badge
+        self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'UPDATE_BADGE',
+              count: count
+            });
+          });
+        });
       }
     } catch (error) {
       console.error('Error setting badge:', error);
     }
   };
 
+  // Ensure event.waitUntil gets a proper promise
   event.waitUntil(
     Promise.all([
       self.registration.showNotification(notificationData.title || 'Bergakungen', options),
-      showBadge()
+      showBadge().catch(err => console.error('Badge update failed:', err))
     ])
   );
 });

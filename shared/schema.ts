@@ -17,6 +17,7 @@ export const users = pgTable("users", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
+  body: text("body"), // Added body field to store the message content
   link: text("link"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   createdById: serial("created_by_id").references(() => users.id),
@@ -48,6 +49,7 @@ export const updateProfileSchema = z.object({
 
 export const insertNotificationSchema = createInsertSchema(notifications).pick({
   title: true,
+  body: true,
   link: true,
   createdById: true,
 });

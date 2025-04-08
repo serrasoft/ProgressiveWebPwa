@@ -243,6 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [notification] = await db.insert(schema.notifications)
         .values({
           title: req.body.title,
+          body: req.body.body, // Store the message body
           link: req.body.link,
           createdAt: new Date(),
         })
@@ -250,10 +251,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('Created notification:', notification);
 
+      // In the payload, add the body field as a separate field since it's not stored in the database
       const payload = JSON.stringify({
         title: req.body.title,
-        body: req.body.body,
+        body: req.body.body || 'Nytt meddelande från Bergakungen',
         url: req.body.link || '/', // Use provided link or default to home
+        id: notification.id
       });
       console.log('Sending notification payload:', payload);
 

@@ -25,20 +25,39 @@ export default function Notifications() {
   const pushSupported = supportsWebPushAPI();
 
   // Fetch notifications from the API
-  const { data: notifications = [], error: notificationsError } = useQuery<Notification[]>({
+  const { data: notifications = [], refetch, error: notificationsError } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
+    staleTime: 10000, // Consider data fresh for 10 seconds
+    refetchOnWindowFocus: true, // Refetch when tab gets focus
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/notifications');
-      console.log('Notifications API response:', response);
-      // If response is a Response object, parse it
-      if (response instanceof Response) {
+      try {
+        console.log('Fetching notifications...');
+        const response = await fetch('/api/notifications');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
-        return Array.isArray(data) ? data : [];
+        console.log('Notifications API response data:', data);
+        
+        if (!Array.isArray(data)) {
+          console.warn('API response is not an array:', data);
+          return [];
+        }
+        
+        return data;
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        throw error;
       }
-      // If it's already parsed JSON, ensure it's an array
-      return Array.isArray(response) ? response : [];
     },
   });
+  
+  // Refetch when component mounts or is visited
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   useEffect(() => {
     if (notificationsError) {
@@ -304,10 +323,20 @@ export default function Notifications() {
                   href={notification.link || '#'}
                   target={notification.link ? "_blank" : undefined}
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
+                  className="flex flex-col gap-1 p-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
                 >
-                  <span>{notification.title}</span>
-                  {notification.link && <ExternalLink className="h-4 w-4" />}
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-medium">{notification.title}</span>
+                    {notification.link && <ExternalLink className="h-4 w-4 ml-2 flex-shrink-0" />}
+                  </div>
+                  
+                  {notification.body && (
+                    <span className="text-sm text-muted-foreground">{notification.body}</span>
+                  )}
+                  
+                  <span className="text-xs text-muted-foreground mt-1">
+                    {new Date(notification.createdAt).toLocaleString('sv-SE')}
+                  </span>
                 </a>
               ))}
             </div>

@@ -299,11 +299,14 @@ export default function Admin() {
               {notifications.map(notification => (
                 <div
                   key={notification.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-accent"
+                  className="flex justify-between p-3 rounded-lg bg-accent"
                 >
                   <div>
                     <p className="font-medium">{notification.title}</p>
-                    <p className="text-sm text-muted-foreground">
+                    {notification.body && (
+                      <p className="text-sm">{notification.body}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
                       {new Date(notification.createdAt).toLocaleString('sv-SE')}
                     </p>
                   </div>
