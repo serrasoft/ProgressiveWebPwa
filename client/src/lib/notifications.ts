@@ -1,3 +1,20 @@
+// Utility function to convert base64 string to Uint8Array
+// Needs to be defined at the module level
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+    
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 /**
  * Checks if the Badging API is supported by the browser
  */
@@ -93,9 +110,49 @@ export async function requestNotificationPermission() {
   }
 
   try {
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      throw new Error("Behörighet för notiser avslogs");
+    // Check current permission first
+    if (Notification.permission === "granted") {
+      console.log("Notification permission already granted");
+      return;
+    }
+    
+    if (Notification.permission === "denied") {
+      throw new Error("Behörighet för notiser har redan avslagits. Återställ behörigheter i webbläsarinställningarna.");
+    }
+
+    // Special handling for iOS
+    if (isIOS()) {
+      console.log("Requesting notification permission on iOS...");
+      
+      // iOS needs special handling for permission request
+      const permission = await new Promise<NotificationPermission>((resolve) => {
+        // Set a timeout in case the permission request gets stuck (happens on some iOS versions)
+        const timeoutId = setTimeout(() => {
+          console.warn("Permission request timed out");
+          resolve("default");
+        }, 5000);
+        
+        Notification.requestPermission().then((result) => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        }).catch((error) => {
+          clearTimeout(timeoutId);
+          console.error("Error requesting permission:", error);
+          resolve("default");
+        });
+      });
+      
+      if (permission !== "granted") {
+        throw new Error("Behörighet för notiser avslogs");
+      }
+      
+      console.log("iOS notification permission granted!");
+    } else {
+      // Standard flow for other browsers
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        throw new Error("Behörighet för notiser avslogs");
+      }
     }
   } catch (error) {
     console.error('Permission request error:', error);
@@ -104,10 +161,16 @@ export async function requestNotificationPermission() {
 }
 
 export async function subscribeToNotifications() {
+  // Check if VAPID public key is configured
   if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
-    console.warn("VAPID public key is not configured - push notifications are disabled");
-    return null;
+    console.error("VAPID_PUBLIC_KEY saknas");
+    throw new Error("Push-notiser är inte konfigurerade på servern.");
   }
+
+  // Log VAPID key (masked for security) to confirm it's available
+  const vapidKeyStart = import.meta.env.VITE_VAPID_PUBLIC_KEY.substring(0, 6);
+  const vapidKeyEnd = import.meta.env.VITE_VAPID_PUBLIC_KEY.substring(import.meta.env.VITE_VAPID_PUBLIC_KEY.length - 6);
+  console.log(`VAPID nyckel är tillgänglig: ${vapidKeyStart}...${vapidKeyEnd}`);
 
   // Verify device support first
   if (!isPushNotificationSupported()) {
@@ -137,49 +200,59 @@ export async function subscribeToNotifications() {
 
   try {
     // First, ensure notification permission
+    console.log("Begär notisbehörighet...");
     await requestNotificationPermission();
+    console.log("Notisbehörighet beviljad.");
     
     // Make sure service worker is ready - this is especially important for iOS
+    console.log("Väntar på att service worker ska bli redo...");
     const registration = await navigator.serviceWorker.ready;
-    console.log('Service Worker is ready');
+    console.log('Service Worker är redo');
 
-    // Check for existing subscription
+    // Check for existing subscription to avoid re-subscribing
     const existingSubscription = await registration.pushManager.getSubscription();
     if (existingSubscription) {
-      console.log('Using existing push subscription');
+      console.log('Använder befintlig push-prenumeration');
       return existingSubscription;
     }
 
+    // Create new subscription with properly formatted application server key
+    console.log("Skapar ny push-prenumeration...");
+    const applicationServerKey = urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY);
+    
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY,
+      applicationServerKey: applicationServerKey,
     });
 
-    console.log('Push subscription created:', subscription);
+    console.log('Push-prenumeration skapad:', subscription);
 
-    // Get the test user ID from our earlier insert
-    const userResponse = await fetch("/api/users/test");
-    const userData = await userResponse.json();
+    // Use a hardcoded ID for now to simplify testing
+    // Note: In a real app, this would use the logged-in user's ID
+    const userId = 1;
 
+    console.log("Registrerar prenumerationen på servern...");
     const response = await fetch("/api/notifications/subscribe", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        userId: userData.id,
+        userId: userId,
         subscription: subscription.toJSON(),
       }),
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Det gick inte att registrera push-notiser: ${errorData.error || response.statusText}`);
+      const errorText = await response.text();
+      console.error("Serverfel:", errorText);
+      throw new Error(`Det gick inte att registrera push-notiser: ${response.status} ${response.statusText}`);
     }
 
+    console.log("Push-notiser aktiverade framgångsrikt!");
     return subscription;
   } catch (error: any) {
-    console.error('Subscription error:', error);
+    console.error('Prenumerationsfel:', error);
     throw new Error("Det gick inte att prenumerera på push-notiser: " + (error.message || error));
   }
 }
