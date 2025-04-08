@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bell, Send, AlertCircle, ExternalLink } from "lucide-react";
-import { requestNotificationPermission, subscribeToNotifications } from "@/lib/notifications";
+import { Bell, Send, AlertCircle, ExternalLink, BadgeCheck } from "lucide-react";
+import { 
+  requestNotificationPermission, 
+  subscribeToNotifications, 
+  clearAppBadge,
+  setAppBadge,
+  isBadgingSupported
+} from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isIOS, isSafari, supportsWebPushAPI } from "@/lib/utils";
@@ -12,6 +18,7 @@ import type { Notification } from "@shared/schema";
 export default function Notifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [badgingSupported, setBadgingSupported] = useState(false);
   const { toast } = useToast();
   const isIOSDevice = isIOS();
   const isSafariBrowser = isSafari();
@@ -43,6 +50,18 @@ export default function Notifications() {
       });
     }
   }, [notificationsError, toast]);
+
+  // Check for badging support
+  useEffect(() => {
+    setBadgingSupported(isBadgingSupported());
+    
+    // Clear the app badge when the notification page is visited
+    if (isBadgingSupported()) {
+      clearAppBadge().then(() => {
+        console.log('App badge cleared on notifications page visit');
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!isIOSDevice && !isSafariBrowser) {
@@ -175,6 +194,52 @@ export default function Notifications() {
     );
   };
 
+  // Function to set a test badge
+  const setTestBadge = async () => {
+    if (!badgingSupported) return;
+    
+    setIsLoading(true);
+    try {
+      await setAppBadge(3);
+      toast({
+        title: "Badge satt",
+        description: "Testbadge placerad på app-ikonen",
+      });
+    } catch (error) {
+      console.error('Failed to set app badge:', error);
+      toast({
+        title: "Fel",
+        description: "Kunde inte sätta badge på app-ikonen",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to clear the badge
+  const clearBadge = async () => {
+    if (!badgingSupported) return;
+    
+    setIsLoading(true);
+    try {
+      await clearAppBadge();
+      toast({
+        title: "Badge rensad",
+        description: "Badge borttagen från app-ikonen",
+      });
+    } catch (error) {
+      console.error('Failed to clear app badge:', error);
+      toast({
+        title: "Fel",
+        description: "Kunde inte ta bort badge från app-ikonen",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Notiser</h1>
@@ -188,6 +253,40 @@ export default function Notifications() {
           {renderContent()}
         </CardContent>
       </Card>
+
+      {/* App Badge Card - Only show if badging is supported */}
+      {badgingSupported && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Appikon Badge</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Denna app stödjer ikoner med märken (badges) som kan visa antalet olästa notiser
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={setTestBadge}
+                disabled={isLoading}
+                className="flex-1"
+              >
+                <Bell className="mr-2 h-4 w-4" />
+                Sätt testbadge (3)
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={clearBadge}
+                disabled={isLoading}
+                className="flex-1"
+              >
+                <BadgeCheck className="mr-2 h-4 w-4" />
+                Rensa badge
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* System Notifications Card */}
       <Card>

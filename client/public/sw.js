@@ -138,8 +138,38 @@ self.addEventListener('push', event => {
     }
   };
 
+  // Handle badging - set a badge on the app icon
+  const showBadge = async () => {
+    try {
+      // First try to get all notifications
+      const notifications = await self.registration.getNotifications();
+      const count = notifications.length + 1; // Add 1 for the new notification
+      
+      // Check if the Badging API is supported
+      if ('setAppBadge' in navigator) {
+        // We're in a service worker, so we need to use clients to get the window client
+        const windowClients = await clients.matchAll({ type: 'window' });
+        
+        // For each client (window), set the badge
+        windowClients.forEach(windowClient => {
+          windowClient.navigate(windowClient.url); // Refresh the client to apply badge
+        });
+        
+        // Try to set the badge directly if possible
+        if (self.navigator && 'setAppBadge' in self.navigator) {
+          self.navigator.setAppBadge(count);
+        }
+      }
+    } catch (error) {
+      console.error('Error setting badge:', error);
+    }
+  };
+
   event.waitUntil(
-    self.registration.showNotification(notificationData.title || 'Bergakungen', options)
+    Promise.all([
+      self.registration.showNotification(notificationData.title || 'Bergakungen', options),
+      showBadge()
+    ])
   );
 });
 
@@ -150,19 +180,51 @@ self.addEventListener('notificationclick', event => {
   // Get the URL from the notification data
   const url = event.notification.data?.url || '/';
 
+  // Clear or update the badge when notification is clicked
+  const updateBadge = async () => {
+    try {
+      // Check remaining notifications
+      const notifications = await self.registration.getNotifications();
+      
+      if ('setAppBadge' in navigator) {
+        // We're in a service worker, so we need to use clients to get the window client
+        const windowClients = await clients.matchAll({ type: 'window' });
+        
+        // For each client, update the badge
+        windowClients.forEach(windowClient => {
+          // If no more notifications, clear the badge, otherwise update count
+          if (notifications.length === 0) {
+            if (self.navigator && 'clearAppBadge' in self.navigator) {
+              self.navigator.clearAppBadge();
+            }
+          } else {
+            if (self.navigator && 'setAppBadge' in self.navigator) {
+              self.navigator.setAppBadge(notifications.length);
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error updating badge:', error);
+    }
+  };
+
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(windowClients => {
-      // Check if there is already a window/tab open with the target URL
-      for (var i = 0; i < windowClients.length; i++) {
-        var client = windowClients[i];
-        if (client.url === url && 'focus' in client) {
-          return client.focus();
+    Promise.all([
+      clients.matchAll({ type: 'window' }).then(windowClients => {
+        // Check if there is already a window/tab open with the target URL
+        for (var i = 0; i < windowClients.length; i++) {
+          var client = windowClients[i];
+          if (client.url === url && 'focus' in client) {
+            return client.focus();
+          }
         }
-      }
-      // If no window/tab is available, open one
-      if (clients.openWindow) {
-        return clients.openWindow(url);
-      }
-    })
+        // If no window/tab is available, open one
+        if (clients.openWindow) {
+          return clients.openWindow(url);
+        }
+      }),
+      updateBadge()
+    ])
   );
 });

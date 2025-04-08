@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
+import { isBadgingSupported, setAppBadge, clearAppBadge } from "@/lib/notifications";
 import type { Notification } from "@shared/schema";
 import { z } from "zod";
 import { Trash2 } from "lucide-react";
@@ -30,6 +31,12 @@ export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAuthenticated, login, logout } = useAdminAuth();
+  const [badgingSupported, setBadgingSupported] = useState(false);
+  
+  // Check for badging support
+  useEffect(() => {
+    setBadgingSupported(isBadgingSupported());
+  }, []);
 
   const notificationForm = useForm<NotificationForm>({
     resolver: zodResolver(notificationSchema),
@@ -73,12 +80,35 @@ export default function Admin() {
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/notifications/${id}`);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Fetch new notifications count after deletion
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      
+      // Update the app badge if supported
+      if (badgingSupported) {
+        try {
+          // Get the updated notifications count
+          const response = await fetch("/api/notifications");
+          const notificationsData = await response.json();
+          const notificationsCount = Array.isArray(notificationsData) ? notificationsData.length : 0;
+          
+          // Update badge with new count, or clear if zero
+          if (notificationsCount > 0) {
+            await setAppBadge(notificationsCount);
+            console.log(`App badge updated to ${notificationsCount}`);
+          } else {
+            await clearAppBadge();
+            console.log('App badge cleared');
+          }
+        } catch (badgeError) {
+          console.error('Failed to update app badge:', badgeError);
+        }
+      }
+      
       toast({
         title: "Klart",
         description: "Notisen har tagits bort",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
     },
     onError: (error) => {
       toast({
@@ -91,17 +121,38 @@ export default function Admin() {
 
   const onSubmit = async (data: NotificationForm) => {
     try {
+      // Send the notification
       await apiRequest("POST", "/api/notifications/send", data);
-      toast({
-        title: "Klart",
-        description: "Notisen har skickats",
-      });
+      
+      // Get latest notifications count to update badge
+      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      
+      // Get the current notifications
+      const response = await fetch("/api/notifications");
+      const notificationsData = await response.json();
+      const notificationsCount = Array.isArray(notificationsData) ? notificationsData.length : 0;
+      
+      // Update the app badge if supported
+      if (badgingSupported && notificationsCount > 0) {
+        try {
+          await setAppBadge(notificationsCount);
+          console.log(`App badge set to ${notificationsCount}`);
+        } catch (badgeError) {
+          console.error('Failed to set app badge:', badgeError);
+        }
+      }
+      
+      // Reset the form
       notificationForm.reset({
         title: "",
         body: "",
         link: "",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      
+      toast({
+        title: "Klart",
+        description: "Notisen har skickats",
+      });
     } catch (error) {
       console.error('Failed to send notification:', error);
       toast({

@@ -1,3 +1,51 @@
+/**
+ * Checks if the Badging API is supported by the browser
+ */
+export function isBadgingSupported(): boolean {
+  return 'setAppBadge' in navigator || 'clearAppBadge' in navigator;
+}
+
+/**
+ * Sets a badge on the app icon
+ * @param count The number to display on the badge (0 clears the badge)
+ */
+export async function setAppBadge(count: number): Promise<void> {
+  if (!isBadgingSupported()) {
+    console.warn('Badging API is not supported in this browser');
+    return;
+  }
+
+  try {
+    if (count === 0) {
+      await clearAppBadge();
+    } else if ('setAppBadge' in navigator) {
+      await navigator.setAppBadge(count);
+      console.log('App badge set to', count);
+    }
+  } catch (error) {
+    console.error('Error setting app badge:', error);
+  }
+}
+
+/**
+ * Clears the badge from the app icon
+ */
+export async function clearAppBadge(): Promise<void> {
+  if (!isBadgingSupported()) {
+    console.warn('Badging API is not supported in this browser');
+    return;
+  }
+
+  try {
+    if ('clearAppBadge' in navigator) {
+      await navigator.clearAppBadge();
+      console.log('App badge cleared');
+    }
+  } catch (error) {
+    console.error('Error clearing app badge:', error);
+  }
+}
+
 export async function requestNotificationPermission() {
   if (!("Notification" in window)) {
     throw new Error("This browser does not support notifications");
