@@ -77,25 +77,60 @@ export default function Notifications() {
     // Clear the app badge when the notification page is visited
     if (isBadgingSupported()) {
       // Use a small delay to ensure service worker is ready
-      const clearBadgeTimer = setTimeout(() => {
-        clearAppBadge()
-          .then(() => {
-            console.log('App badge cleared on notifications page visit');
-          })
-          .catch(error => {
-            console.error('Error clearing badge:', error);
-          });
-      }, 1000);
+      const clearBadgeTimer = setTimeout(async () => {
+        try {
+          await clearAppBadge();
+          console.log('App badge cleared on notifications page visit');
+          
+          // Notify service worker that the badge was cleared
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'BADGE_CLEARED',
+              timestamp: Date.now()
+            });
+            console.log('Notified service worker about badge clearing');
+          }
+        } catch (error) {
+          console.error('Error clearing badge:', error);
+        }
+      }, 500); // Reduced delay for faster badge clearing
       
       return () => clearTimeout(clearBadgeTimer);
     }
+  }, []);
+  
+  // Also clear badge when page becomes visible again (e.g., after app switching)
+  useEffect(() => {
+    if (!isBadgingSupported()) return;
+    
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          await clearAppBadge();
+          console.log('Badge cleared on visibility change to visible');
+          
+          // Also notify service worker
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'BADGE_CLEARED',
+              timestamp: Date.now()
+            });
+          }
+        } catch (error) {
+          console.error('Error clearing badge on visibility change:', error);
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
   
   // Setup message listener for badge updates from service worker
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     
-    const handleMessage = async (event) => {
+    const handleMessage = async (event: MessageEvent) => {
       if (event.data?.type === 'UPDATE_BADGE') {
         console.log(`Updating badge to ${event.data.count} from service worker message`);
         try {

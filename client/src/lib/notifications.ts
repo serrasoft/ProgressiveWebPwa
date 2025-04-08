@@ -23,7 +23,7 @@ export function isBadgingSupported(): boolean {
 }
 
 /**
- * Sets a badge on the app icon
+ * Sets a badge on the app icon with enhanced iOS support
  * @param count The number to display on the badge (0 clears the badge)
  */
 export async function setAppBadge(count: number): Promise<void> {
@@ -35,17 +35,49 @@ export async function setAppBadge(count: number): Promise<void> {
   try {
     if (count === 0) {
       await clearAppBadge();
-    } else if ('setAppBadge' in navigator) {
-      await navigator.setAppBadge(count);
-      console.log('App badge set to', count);
+    } else {
+      // For iOS PWAs, make multiple attempts if needed
+      // iOS sometimes requires multiple attempts to set badges
+      const maxAttempts = isIOS() ? 3 : 1;
+      let success = false;
+      
+      for (let attempt = 1; attempt <= maxAttempts && !success; attempt++) {
+        try {
+          await navigator.setAppBadge(count);
+          console.log(`App badge set to ${count} (attempt ${attempt})`);
+          success = true;
+        } catch (error) {
+          console.warn(`Badge set attempt ${attempt} failed:`, error);
+          if (attempt < maxAttempts) {
+            // Wait a bit before trying again
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } else {
+            throw error; // Re-throw on final attempt
+          }
+        }
+      }
+      
+      // If we have service worker, also notify it to confirm badge update
+      if (success && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        try {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'BADGE_SET',
+            count: count,
+            timestamp: Date.now()
+          });
+        } catch (e) {
+          console.warn('Failed to notify service worker about badge update:', e);
+        }
+      }
     }
   } catch (error) {
     console.error('Error setting app badge:', error);
+    throw error; // Re-throw to allow caller to handle the error
   }
 }
 
 /**
- * Clears the badge from the app icon
+ * Clears the badge from the app icon with enhanced iOS support
  */
 export async function clearAppBadge(): Promise<void> {
   if (!isBadgingSupported()) {
@@ -54,12 +86,40 @@ export async function clearAppBadge(): Promise<void> {
   }
 
   try {
-    if ('clearAppBadge' in navigator) {
-      await navigator.clearAppBadge();
-      console.log('App badge cleared');
+    // For iOS, make multiple attempts as iOS sometimes fails silently
+    const maxAttempts = isIOS() ? 3 : 1;
+    let success = false;
+    
+    for (let attempt = 1; attempt <= maxAttempts && !success; attempt++) {
+      try {
+        await navigator.clearAppBadge();
+        console.log(`App badge cleared successfully (attempt ${attempt})`);
+        success = true;
+      } catch (error) {
+        console.warn(`Badge clear attempt ${attempt} failed:`, error);
+        if (attempt < maxAttempts) {
+          // Wait a bit before trying again
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } else {
+          throw error; // Re-throw on final attempt
+        }
+      }
+    }
+    
+    // Also notify service worker that badge was cleared
+    if (success && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      try {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'BADGE_CLEARED',
+          timestamp: Date.now()
+        });
+      } catch (e) {
+        console.warn('Failed to notify service worker about badge clearing:', e);
+      }
     }
   } catch (error) {
     console.error('Error clearing app badge:', error);
+    throw error; // Re-throw to allow caller to handle the error
   }
 }
 

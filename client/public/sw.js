@@ -36,7 +36,21 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     Promise.all([
       // Take control of all clients/pages immediately
-      clients.claim(),
+      clients.claim().then(() => {
+        console.log('Service worker claimed all clients');
+        
+        // Notify all clients that the service worker is active
+        return self.clients.matchAll({ type: 'window' }).then(clients => {
+          clients.forEach(client => {
+            client.postMessage({ 
+              type: 'SW_ACTIVATED',
+              timestamp: Date.now()
+            });
+          });
+          console.log(`Notified ${clients.length} clients about service worker activation`);
+        });
+      }),
+      
       // Clean up old caches
       caches.keys().then(cacheNames => {
         return Promise.all(
@@ -53,6 +67,12 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Only handle GET requests and http/https schemes
+  if (event.request.method !== 'GET' || 
+      !event.request.url.startsWith('http')) {
+    return;
+  }
+
   const isApiRequest = event.request.url.includes('/api/');
 
   event.respondWith(
@@ -66,7 +86,11 @@ self.addEventListener('fetch', event => {
               .then(freshResponse => {
                 if (freshResponse && freshResponse.status === 200) {
                   caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, freshResponse.clone());
+                    try {
+                      cache.put(event.request, freshResponse.clone());
+                    } catch (e) {
+                      console.error('Failed to cache response:', e);
+                    }
                   });
                 }
               })
@@ -90,7 +114,11 @@ self.addEventListener('fetch', event => {
           // Cache static assets and API responses when offline mode is enabled
           caches.open(CACHE_NAME)
             .then(cache => {
-              cache.put(event.request, responseToCache);
+              try {
+                cache.put(event.request, responseToCache);
+              } catch (e) {
+                console.error('Failed to cache response:', e);
+              }
             });
 
           return response;
@@ -107,21 +135,88 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('message', event => {
-  if (event.data.type === 'ENABLE_OFFLINE_MODE') {
+  console.log('Service worker received message:', event.data);
+
+  // Handle skip waiting message to activate new service worker immediately
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('SKIP_WAITING message received, activating new service worker');
+    self.skipWaiting();
+  }
+
+  // Handle badge cleared message from client
+  if (event.data && event.data.type === 'BADGE_CLEARED') {
+    console.log('BADGE_CLEARED message received, ensuring badge is cleared');
+    
+    // Try to clear badge directly from the service worker
+    if ('setAppBadge' in self.navigator) {
+      self.navigator.clearAppBadge()
+        .then(() => console.log('Badge cleared successfully in service worker'))
+        .catch(error => console.error('Failed to clear badge in service worker:', error));
+    }
+    
+    // Also notify all other clients to clear their badges
+    self.clients.matchAll({ type: 'window' })
+      .then(clients => {
+        clients.forEach(client => {
+          // Don't send back to the same client that sent the message
+          if (event.source && client.id !== event.source.id) {
+            client.postMessage({
+              type: 'UPDATE_BADGE',
+              count: 0 // 0 means clear the badge
+            });
+          }
+        });
+      })
+      .catch(error => console.error('Error notifying clients about badge clearing:', error));
+  }
+
+  // Handle offline mode enabling
+  if (event.data && event.data.type === 'ENABLE_OFFLINE_MODE') {
+    console.log('Enabling offline mode');
     // Cache all responses when offline mode is enabled
     caches.open(OFFLINE_MODE_CACHE).then(cache => {
       // Cache API responses
       fetch('/api/profile')
         .then(response => {
-          cache.put('/api/profile', response.clone());
+          try {
+            cache.put('/api/profile', response.clone());
+            console.log('Cached profile for offline use');
+          } catch (error) {
+            console.error('Failed to cache profile:', error);
+          }
         })
-        .catch(console.error);
+        .catch(error => console.error('Failed to fetch profile for caching:', error));
+    }).catch(error => console.error('Failed to open cache:', error));
+  }
+
+  // Echo any other messages back to client for testing
+  if (event.source) {
+    event.source.postMessage({
+      type: 'ECHO_RESPONSE',
+      originalMessage: event.data,
+      timestamp: Date.now()
     });
   }
 });
 
 self.addEventListener('push', event => {
   console.log('Push event received with data:', event.data ? event.data.text() : 'no payload');
+
+  // Immediately wake all clients to ensure they receive the badge update
+  const wakeClients = async () => {
+    try {
+      const allClients = await self.clients.matchAll({ type: 'window' });
+      console.log(`Found ${allClients.length} clients to wake`);
+      allClients.forEach(client => {
+        client.postMessage({
+          type: 'WAKE_UP',
+          timestamp: Date.now()
+        });
+      });
+    } catch (err) {
+      console.error('Error waking clients:', err);
+    }
+  };
 
   let notificationData = {};
   if (event.data) {
@@ -139,28 +234,32 @@ self.addEventListener('push', event => {
     }
   }
 
-  // Enhanced notification options - better iOS support
+  // Define unique tag for this notification to avoid duplicates
+  const uniqueTag = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Enhanced notification options with special attention to iOS support
   const options = {
     body: notificationData.body || 'Ny notis från Bergakungen',
     icon: '/icons/Icon-192.png',
     badge: '/icons/Icon-72.png',
-    // iOS doesn't support vibration patterns
+    // Vibration pattern (not supported on iOS but used on Android)
     vibrate: [100, 50, 100],
-    // Sound is supported on iOS
+    // Ensure sound is enabled
     silent: false,
+    // Allow multiple notifications with same tag to be shown
     renotify: true,
-    // iOS uses the 'tag' value to group notifications
-    tag: notificationData.tag || 'new-notification',
-    // iOS treats 'requireInteraction' differently
+    // Each notification gets a unique tag to avoid collapsing
+    tag: notificationData.tag || uniqueTag,
+    // Make sure notification is shown in foreground
     requireInteraction: true,
     // Data to pass to notification click handler
     data: {
       url: notificationData.url || '/',
       dateOfArrival: Date.now(),
-      primaryKey: notificationData.id || 1,
+      notificationId: notificationData.id || 1,
       isiOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream
     },
-    // iOS supports 'actions'  
+    // Action buttons
     actions: [
       {
         action: 'view',
@@ -171,8 +270,8 @@ self.addEventListener('push', event => {
 
   console.log('Showing notification with options:', options);
 
-  // Handle badging - set a badge on the app icon
-  const showBadge = async () => {
+  // Handle badge updates - both on service worker and clients
+  const updateBadge = async () => {
     try {
       // First try to get all notifications
       const response = await fetch('/api/notifications');
@@ -181,54 +280,76 @@ self.addEventListener('push', event => {
       }
       
       const notificationsData = await response.json();
-      const count = Array.isArray(notificationsData) ? notificationsData.length : 1; // Fallback to 1 if we can't get count
+      // Make sure we always have at least 1 for a new notification, if API fails
+      const count = Array.isArray(notificationsData) ? notificationsData.length : 1;
       
       console.log(`Setting badge count to ${count}`);
       
-      // For iOS, we need to handle badge updates through the client
+      // Update badge through all possible methods
+      
+      // Method 1: Try direct service worker API
       if ('setAppBadge' in self.navigator) {
         try {
           await self.navigator.setAppBadge(count);
           console.log(`Service worker set app badge to ${count}`);
         } catch (err) {
           console.error('Failed to set badge in service worker:', err);
-          // Fallback: notify all clients to update the badge
-          const allClients = await self.clients.matchAll({ type: 'window' });
-          allClients.forEach(client => {
-            client.postMessage({
-              type: 'UPDATE_BADGE',
-              count: count
-            });
-          });
-        }
-      } else {
-        console.log('Badging API not available in SW, messaging clients');
-        
-        // Message all clients to update the badge
-        const allClients = await self.clients.matchAll({ type: 'window' });
-        if (allClients.length > 0) {
-          console.log(`Messaging ${allClients.length} clients to update badge`);
-          allClients.forEach(client => {
-            client.postMessage({
-              type: 'UPDATE_BADGE',
-              count: count
-            });
-          });
-        } else {
-          console.log('No clients available to message');
         }
       }
+      
+      // Method 2: Always message all clients to ensure badge is updated
+      const allClients = await self.clients.matchAll({ type: 'window' });
+      if (allClients.length > 0) {
+        console.log(`Messaging ${allClients.length} clients to update badge`);
+        allClients.forEach(client => {
+          client.postMessage({
+            type: 'UPDATE_BADGE',
+            count: count
+          });
+        });
+      } else {
+        console.log('No window clients available to message for badge update');
+      }
+      
+      return count;
     } catch (error) {
-      console.error('Error setting badge:', error);
+      console.error('Error updating badge:', error);
+      return 1; // Default to 1 if we can't determine the count
     }
   };
 
-  // Ensure event.waitUntil gets a proper promise
+  // Try to use notification as persistent as possible to maximize chance of it showing
+  const showNotification = async () => {
+    try {
+      await self.registration.showNotification(notificationData.title || 'Bergakungen', options);
+      console.log('Notification shown successfully');
+      
+      // Some browsers might need a second attempt for iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream;
+      if (isIOS) {
+        // On iOS, also message clients to show a fallback notification
+        const allClients = await self.clients.matchAll({ type: 'window' });
+        allClients.forEach(client => {
+          client.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            title: notificationData.title || 'Bergakungen',
+            body: notificationData.body || 'Ny notis från Bergakungen',
+            data: options.data
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error showing notification:', error);
+    }
+  };
+
+  // Ensure event.waitUntil gets a proper promise chain
   event.waitUntil(
     Promise.all([
-      self.registration.showNotification(notificationData.title || 'Bergakungen', options),
-      showBadge().catch(err => console.error('Badge update failed:', err))
-    ])
+      wakeClients(),
+      showNotification(),
+      updateBadge()
+    ]).catch(err => console.error('Push handling failed:', err))
   );
 });
 
