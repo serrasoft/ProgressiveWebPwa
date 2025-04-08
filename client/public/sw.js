@@ -150,7 +150,7 @@ self.addEventListener('push', event => {
     silent: false,
     renotify: true,
     // iOS uses the 'tag' value to group notifications
-    tag: notificationData.tag || 'default',
+    tag: notificationData.tag || 'new-notification',
     // iOS treats 'requireInteraction' differently
     requireInteraction: true,
     // Data to pass to notification click handler
@@ -181,32 +181,42 @@ self.addEventListener('push', event => {
       }
       
       const notificationsData = await response.json();
-      const count = Array.isArray(notificationsData) ? notificationsData.length : 0;
+      const count = Array.isArray(notificationsData) ? notificationsData.length : 1; // Fallback to 1 if we can't get count
       
       console.log(`Setting badge count to ${count}`);
       
-      // Check if the Badging API is supported
-      if ('setAppBadge' in navigator) {
-        navigator.setAppBadge(count).then(() => {
-          console.log(`App badge set to ${count}`);
-        }).catch(err => {
-          console.error('Failed to set app badge:', err);
-        });
-      } else if (self.navigator && 'setAppBadge' in self.navigator) {
-        self.navigator.setAppBadge(count);
-        console.log(`Service worker set app badge to ${count}`);
-      } else {
-        console.log('Badging API not available');
-        
-        // Try to message clients to update badge
-        self.clients.matchAll({ type: 'window' }).then(clients => {
-          clients.forEach(client => {
+      // For iOS, we need to handle badge updates through the client
+      if ('setAppBadge' in self.navigator) {
+        try {
+          await self.navigator.setAppBadge(count);
+          console.log(`Service worker set app badge to ${count}`);
+        } catch (err) {
+          console.error('Failed to set badge in service worker:', err);
+          // Fallback: notify all clients to update the badge
+          const allClients = await self.clients.matchAll({ type: 'window' });
+          allClients.forEach(client => {
             client.postMessage({
               type: 'UPDATE_BADGE',
               count: count
             });
           });
-        });
+        }
+      } else {
+        console.log('Badging API not available in SW, messaging clients');
+        
+        // Message all clients to update the badge
+        const allClients = await self.clients.matchAll({ type: 'window' });
+        if (allClients.length > 0) {
+          console.log(`Messaging ${allClients.length} clients to update badge`);
+          allClients.forEach(client => {
+            client.postMessage({
+              type: 'UPDATE_BADGE',
+              count: count
+            });
+          });
+        } else {
+          console.log('No clients available to message');
+        }
       }
     } catch (error) {
       console.error('Error setting badge:', error);
@@ -242,26 +252,63 @@ self.addEventListener('notificationclick', event => {
   // Clear or update the badge when notification is clicked
   const updateBadge = async () => {
     try {
-      // Check remaining notifications
-      const notifications = await self.registration.getNotifications();
+      // Check if we can fetch remaining unread notifications 
+      let count = 0;
       
-      // iOS and other browsers that support the Badging API
-      if ('setAppBadge' in navigator) {
-        // We're in a service worker, so we need to use clients to get the window client
-        const windowClients = await clients.matchAll({ type: 'window' });
-        
-        // For each client, update the badge
-        windowClients.forEach(windowClient => {
-          // If no more notifications, clear the badge, otherwise update count
-          if (notifications.length === 0) {
-            if (self.navigator && 'clearAppBadge' in self.navigator) {
-              self.navigator.clearAppBadge();
-            }
+      try {
+        // Try to fetch notifications from the API
+        const response = await fetch('/api/notifications');
+        if (response.ok) {
+          const notificationsData = await response.json();
+          count = Array.isArray(notificationsData) ? notificationsData.length : 0;
+          console.log(`Fetched ${count} notifications for badge update`);
+        } else {
+          console.warn('Could not fetch notifications for badge, falling back to notification count');
+          const notifications = await self.registration.getNotifications();
+          count = notifications.length;
+        }
+      } catch (error) {
+        console.error('Error fetching notifications for badge update:', error);
+        // Fallback to notification count if API fetch failed
+        const notifications = await self.registration.getNotifications();
+        count = notifications.length;
+      }
+      
+      console.log(`Setting badge to ${count}`);
+      
+      // First try to directly update badge with ServiceWorker API
+      if (self.navigator && 'setAppBadge' in self.navigator) {
+        try {
+          if (count > 0) {
+            await self.navigator.setAppBadge(count);
+            console.log(`Badge set to ${count}`);
           } else {
-            if (self.navigator && 'setAppBadge' in self.navigator) {
-              self.navigator.setAppBadge(notifications.length);
-            }
+            await self.navigator.clearAppBadge();
+            console.log('Badge cleared');
           }
+        } catch (badgeError) {
+          console.error('Failed to update badge directly:', badgeError);
+          // Fallback to client messaging
+          const windowClients = await clients.matchAll({ type: 'window' });
+          console.log(`Messaging ${windowClients.length} clients to update badge`);
+          
+          windowClients.forEach(client => {
+            client.postMessage({
+              type: 'UPDATE_BADGE',
+              count: count
+            });
+          });
+        }
+      } else {
+        // Otherwise message all clients to update the badge
+        const windowClients = await clients.matchAll({ type: 'window' });
+        console.log(`Messaging ${windowClients.length} clients to update badge`);
+        
+        windowClients.forEach(client => {
+          client.postMessage({
+            type: 'UPDATE_BADGE',
+            count: count
+          });
         });
       }
     } catch (error) {

@@ -70,16 +70,51 @@ export default function Notifications() {
     }
   }, [notificationsError, toast]);
 
-  // Check for badging support
+  // Check for badging support and clear badge when visiting page
   useEffect(() => {
     setBadgingSupported(isBadgingSupported());
     
     // Clear the app badge when the notification page is visited
     if (isBadgingSupported()) {
-      clearAppBadge().then(() => {
-        console.log('App badge cleared on notifications page visit');
-      });
+      // Use a small delay to ensure service worker is ready
+      const clearBadgeTimer = setTimeout(() => {
+        clearAppBadge()
+          .then(() => {
+            console.log('App badge cleared on notifications page visit');
+          })
+          .catch(error => {
+            console.error('Error clearing badge:', error);
+          });
+      }, 1000);
+      
+      return () => clearTimeout(clearBadgeTimer);
     }
+  }, []);
+  
+  // Setup message listener for badge updates from service worker
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    
+    const handleMessage = async (event) => {
+      if (event.data?.type === 'UPDATE_BADGE') {
+        console.log(`Updating badge to ${event.data.count} from service worker message`);
+        try {
+          if (event.data.count > 0) {
+            await setAppBadge(event.data.count);
+          } else {
+            await clearAppBadge();
+          }
+        } catch (error) {
+          console.error('Failed to update badge from service worker message:', error);
+        }
+      }
+    };
+    
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleMessage);
+    };
   }, []);
 
   useEffect(() => {
