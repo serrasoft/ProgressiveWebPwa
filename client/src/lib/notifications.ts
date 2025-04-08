@@ -46,19 +46,60 @@ export async function clearAppBadge(): Promise<void> {
   }
 }
 
+/**
+ * Detects if we're running on iOS
+ */
+export function isIOS(): boolean {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+}
+
+/**
+ * Checks if the current device supports push notifications
+ * - Takes into account iOS 16.4+ requirements
+ */
+export function isPushNotificationSupported(): boolean {
+  // Basic requirement: Service Worker API and Notification API
+  const basicSupport = 'serviceWorker' in navigator && 'Notification' in window && 'PushManager' in window;
+  
+  if (isIOS()) {
+    // For iOS, also check if it's installed as PWA (standalone mode)
+    // iOS web push only works when app is installed on home screen
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         (navigator as any).standalone === true;
+    
+    return basicSupport && isStandalone;
+  }
+  
+  return basicSupport;
+}
+
 export async function requestNotificationPermission() {
-  if (!("Notification" in window)) {
-    throw new Error("This browser does not support notifications");
+  if (!isPushNotificationSupported()) {
+    // For iOS, give a more specific message
+    if (isIOS()) {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          (navigator as any).standalone === true;
+      
+      if (!isStandalone) {
+        throw new Error(
+          "För att aktivera push-notiser på iOS, lägg till appen på startskärmen först genom att klicka på 'Dela' och sedan 'Lägg till på hemskärmen'"
+        );
+      } else if (parseInt(navigator.userAgent.match(/OS (\d+)_/)?.[1] || "0", 10) < 16) {
+        throw new Error("Push-notiser kräver iOS 16.4 eller senare");
+      }
+    } else {
+      throw new Error("Din enhet stöder inte push-notiser");
+    }
   }
 
   try {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
-      throw new Error("Notification permission was not granted");
+      throw new Error("Behörighet för notiser avslogs");
     }
   } catch (error) {
     console.error('Permission request error:', error);
-    throw new Error("Failed to request notification permission");
+    throw new Error("Det gick inte att begära behörighet för notiser");
   }
 }
 
@@ -68,9 +109,46 @@ export async function subscribeToNotifications() {
     return null;
   }
 
+  // Verify device support first
+  if (!isPushNotificationSupported()) {
+    if (isIOS()) {
+      // For iOS users, provide specific guidance
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          (navigator as any).standalone === true;
+      
+      if (!isStandalone) {
+        throw new Error(
+          "För att få push-notiser på iOS, installera först appen på startskärmen"
+        );
+      }
+      
+      // Check iOS version
+      const iosVersion = parseInt(navigator.userAgent.match(/OS (\d+)_/)?.[1] || "0", 10);
+      if (iosVersion < 16) {
+        throw new Error("Push-notiser kräver iOS 16.4 eller senare");
+      } else if (iosVersion === 16) {
+        // For iOS 16, need to check minor version (16.4+)
+        console.log("För iOS 16 behöver du iOS 16.4 eller senare för att få push-notiser");
+      }
+    } else {
+      throw new Error("Din enhet stöder inte push-notiser");
+    }
+  }
+
   try {
+    // First, ensure notification permission
+    await requestNotificationPermission();
+    
+    // Make sure service worker is ready - this is especially important for iOS
     const registration = await navigator.serviceWorker.ready;
     console.log('Service Worker is ready');
+
+    // Check for existing subscription
+    const existingSubscription = await registration.pushManager.getSubscription();
+    if (existingSubscription) {
+      console.log('Using existing push subscription');
+      return existingSubscription;
+    }
 
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
@@ -96,12 +174,12 @@ export async function subscribeToNotifications() {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Failed to register push subscription with server: ${errorData.error || response.statusText}`);
+      throw new Error(`Det gick inte att registrera push-notiser: ${errorData.error || response.statusText}`);
     }
 
     return subscription;
   } catch (error: any) {
     console.error('Subscription error:', error);
-    throw new Error("Failed to subscribe to push notifications: " + (error.message || error));
+    throw new Error("Det gick inte att prenumerera på push-notiser: " + (error.message || error));
   }
 }

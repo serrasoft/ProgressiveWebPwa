@@ -3,9 +3,17 @@
   "short_name": "Bergakungen",
   "description": "BRF Docenten - Bergakungen",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#00366D",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "iarc_rating_id": "",
+  "related_applications": [],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
   "icons": [
     {
       "src": "/icons/Icon-16.png",

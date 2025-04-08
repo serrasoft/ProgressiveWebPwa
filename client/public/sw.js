@@ -129,22 +129,40 @@ self.addEventListener('push', event => {
       notificationData = event.data.json();
     } catch (e) {
       notificationData = {
-        title: 'New Notification',
+        title: 'Ny notis',
         body: event.data.text()
       };
     }
   }
 
+  // Enhanced notification options - better iOS support
   const options = {
-    body: notificationData.body || 'New notification',
+    body: notificationData.body || 'Ny notis från Bergakungen',
     icon: '/icons/Icon-192.png',
     badge: '/icons/Icon-72.png',
+    // iOS doesn't support vibration patterns
     vibrate: [100, 50, 100],
+    // Sound is supported on iOS
+    silent: false,
+    renotify: true,
+    // iOS uses the 'tag' value to group notifications
+    tag: notificationData.tag || 'default',
+    // iOS treats 'requireInteraction' differently
+    requireInteraction: true,
+    // Data to pass to notification click handler
     data: {
       url: notificationData.url || '/',
       dateOfArrival: Date.now(),
-      primaryKey: 1
-    }
+      primaryKey: notificationData.id || 1,
+      isiOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream
+    },
+    // iOS supports 'actions'  
+    actions: [
+      {
+        action: 'view',
+        title: 'Visa'
+      }
+    ]
   };
 
   // Handle badging - set a badge on the app icon
@@ -182,12 +200,22 @@ self.addEventListener('push', event => {
   );
 });
 
+// Handle notification actions 
 self.addEventListener('notificationclick', event => {
   console.log('Notification clicked:', event);
+  
+  // Close the notification
   event.notification.close();
 
   // Get the URL from the notification data
   const url = event.notification.data?.url || '/';
+  const isIOS = event.notification.data?.isiOS || false;
+  
+  // Check if a specific action was clicked
+  let actionUrl = url;
+  if (event.action === 'view') {
+    actionUrl = url; // Use the default URL for 'view' action
+  }
 
   // Clear or update the badge when notification is clicked
   const updateBadge = async () => {
@@ -195,6 +223,7 @@ self.addEventListener('notificationclick', event => {
       // Check remaining notifications
       const notifications = await self.registration.getNotifications();
       
+      // iOS and other browsers that support the Badging API
       if ('setAppBadge' in navigator) {
         // We're in a service worker, so we need to use clients to get the window client
         const windowClients = await clients.matchAll({ type: 'window' });
@@ -218,21 +247,34 @@ self.addEventListener('notificationclick', event => {
     }
   };
 
+  // Special handling for iOS
+  const openUrl = async () => {
+    try {
+      // Get all open windows/tabs
+      const windowClients = await clients.matchAll({ type: 'window' });
+      
+      // Check if there is already a window/tab open with the target URL
+      for (let i = 0; i < windowClients.length; i++) {
+        const client = windowClients[i];
+        if (client.url === actionUrl && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      
+      // If no window/tab is available, open one
+      if (clients.openWindow) {
+        return clients.openWindow(actionUrl);
+      }
+      
+    } catch (error) {
+      console.error('Error opening URL:', error);
+    }
+  };
+
+  // Execute both tasks in parallel
   event.waitUntil(
     Promise.all([
-      clients.matchAll({ type: 'window' }).then(windowClients => {
-        // Check if there is already a window/tab open with the target URL
-        for (var i = 0; i < windowClients.length; i++) {
-          var client = windowClients[i];
-          if (client.url === url && 'focus' in client) {
-            return client.focus();
-          }
-        }
-        // If no window/tab is available, open one
-        if (clients.openWindow) {
-          return clients.openWindow(url);
-        }
-      }),
+      openUrl(),
       updateBadge()
     ])
   );
