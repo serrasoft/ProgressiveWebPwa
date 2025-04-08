@@ -318,26 +318,32 @@ export default function Notifications() {
           ) : (
             <div className="space-y-2">
               {notifications.map(notification => (
-                <a
+                <div
                   key={notification.id}
-                  href={notification.link || '#'}
-                  target={notification.link ? "_blank" : undefined}
-                  rel="noopener noreferrer"
-                  className="flex flex-col gap-1 p-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
+                  className="p-3 rounded-lg bg-accent"
                 >
                   <div className="flex items-center justify-between w-full">
                     <span className="font-medium">{notification.title}</span>
-                    {notification.link && <ExternalLink className="h-4 w-4 ml-2 flex-shrink-0" />}
+                    {notification.link && (
+                      <a 
+                        href={notification.link} 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center ml-2"
+                      >
+                        <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                      </a>
+                    )}
                   </div>
                   
                   {notification.body && (
-                    <span className="text-sm text-muted-foreground">{notification.body}</span>
+                    <div className="mt-1 text-sm">{notification.body}</div>
                   )}
                   
-                  <span className="text-xs text-muted-foreground mt-1">
+                  <div className="mt-2 text-xs text-muted-foreground">
                     {new Date(notification.createdAt).toLocaleString('sv-SE')}
-                  </span>
-                </a>
+                  </div>
+                </div>
               ))}
             </div>
           )}

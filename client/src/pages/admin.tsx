@@ -301,16 +301,16 @@ export default function Admin() {
                   key={notification.id}
                   className="flex justify-between p-3 rounded-lg bg-accent"
                 >
-                  <div>
+                  <div className="flex-grow mr-4">
                     <p className="font-medium">{notification.title}</p>
                     {notification.body && (
-                      <p className="text-sm">{notification.body}</p>
+                      <p className="text-sm mt-1">{notification.body}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {new Date(notification.createdAt).toLocaleString('sv-SE')}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 items-end">
                     {notification.link && (
                       <a
                         href={notification.link}
