@@ -5,8 +5,17 @@ const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon.svg',
   '/logo1.png',
+  '/icons/Icon-16.png',
+  '/icons/Icon-32.png',
+  '/icons/Icon-64.png',
+  '/icons/Icon-128.png',
+  '/icons/Icon-192.png',
+  '/icons/Icon-512.png',
+  '/icons/Icon-180.png',
+  '/icons/Icon-152.png',
+  '/icons/Icon-167.png',
+  '/icons/Icon-1024.png',
   '/src/main.tsx',
   '/src/index.css',
   '/api/profile'  // Cache profile data for offline use
@@ -128,8 +137,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body: notificationData.body || 'New notification',
-    icon: '/icon.svg',
-    badge: '/icon.svg',
+    icon: '/icons/Icon-192.png',
+    badge: '/icons/Icon-72.png',
     vibrate: [100, 50, 100],
     data: {
       url: notificationData.url || '/',
