@@ -30,7 +30,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isAuthenticated, login, logout } = useAdminAuth();
+  const { isAuthenticated, login, logout, resetAuth } = useAdminAuth();
   const [badgingSupported, setBadgingSupported] = useState(false);
   
   // Check for badging support
@@ -212,9 +212,24 @@ export default function Admin() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" disabled={loginForm.formState.isSubmitting}>
-                  Logga in
-                </Button>
+                <div className="flex justify-between items-center gap-2">
+                  <Button type="submit" disabled={loginForm.formState.isSubmitting}>
+                    Logga in
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                      resetAuth();
+                      toast({
+                        title: "Återställd",
+                        description: "Inloggningsstatus har återställts",
+                      });
+                    }}
+                  >
+                    Återställ inloggning
+                  </Button>
+                </div>
               </form>
             </Form>
           </CardContent>
