@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 
 interface AdminAuthState {
   isAuthenticated: boolean;
-  password: string;
   login: (password: string) => boolean;
   logout: () => void;
 }
@@ -15,15 +14,14 @@ export const useAdminAuth = create<AdminAuthState>()(
   persist(
     (set) => ({
       isAuthenticated: false,
-      password: '',
       login: (password: string) => {
         const isValid = password === ADMIN_PASSWORD;
         if (isValid) {
-          set({ isAuthenticated: true, password });
+          set({ isAuthenticated: true });
         }
         return isValid;
       },
-      logout: () => set({ isAuthenticated: false, password: '' }),
+      logout: () => set({ isAuthenticated: false }),
     }),
     {
       name: 'admin-auth',

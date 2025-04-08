@@ -38,7 +38,7 @@ export default function Admin() {
       body: "",
       link: "",
     },
-    mode: "onChange"
+    mode: "onChange",
   });
 
   const loginForm = useForm<LoginForm>({
@@ -46,7 +46,7 @@ export default function Admin() {
     defaultValues: {
       password: "",
     },
-    mode: "onChange"
+    mode: "onChange",
   });
 
   // Reset forms when authentication state changes
@@ -58,11 +58,12 @@ export default function Admin() {
         link: "",
       });
     } else {
+      // Only reset login form if not authenticated
       loginForm.reset({
         password: "",
       });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, notificationForm, loginForm]);
 
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ['/api/notifications'],
@@ -112,12 +113,16 @@ export default function Admin() {
   };
 
   const onLogin = (data: LoginForm) => {
-    if (login(data.password)) {
+    const success = login(data.password);
+    
+    // Always reset the form to clear the password field
+    loginForm.reset();
+    
+    if (success) {
       toast({
         title: "Välkommen",
         description: "Du är nu inloggad som administratör",
       });
-      loginForm.reset();
     } else {
       toast({
         title: "Fel",

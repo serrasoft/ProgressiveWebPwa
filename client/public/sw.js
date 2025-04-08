@@ -6,6 +6,7 @@ const urlsToCache = [
   '/index.html',
   '/manifest.json',
   '/icon.svg',
+  '/logo1.png',
   '/src/main.tsx',
   '/src/index.css',
   '/api/profile'  // Cache profile data for offline use
