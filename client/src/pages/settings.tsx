@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
 import { isIOS, isPushNotificationSupported, requestNotificationPermission, subscribeToNotifications } from "@/lib/notifications";
 
@@ -18,6 +19,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Check notifications status and device type
   useEffect(() => {

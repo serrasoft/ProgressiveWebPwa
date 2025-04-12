@@ -131,12 +131,15 @@ export default function Auth() {
   // Handle verification
   const onVerify = async (data: VerifyForm) => {
     verifyMutation.mutate(data, {
-      onSuccess: () => {
+      onSuccess: (user) => {
         // Store credentials for offline use
         localStorage.setItem('offlineAuth', JSON.stringify({
           email: data.email,
           timestamp: new Date().toISOString()
         }));
+        
+        // We'll handle notification permissions on the settings page
+        // instead of immediately after verification
         setLocation("/");
       }
     });

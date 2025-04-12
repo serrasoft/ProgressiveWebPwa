@@ -220,7 +220,7 @@ export async function requestNotificationPermission() {
   }
 }
 
-export async function subscribeToNotifications() {
+export async function subscribeToNotifications(userId: number) {
   // Check if VAPID public key is configured
   if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
     console.error("VAPID_PUBLIC_KEY saknas");
@@ -287,9 +287,7 @@ export async function subscribeToNotifications() {
 
     console.log('Push-prenumeration skapad:', subscription);
 
-    // Use a hardcoded ID for now to simplify testing
-    // Note: In a real app, this would use the logged-in user's ID
-    const userId = 1;
+    // Using the userId parameter passed to this function
 
     console.log("Registrerar prenumerationen på servern...");
     const response = await fetch("/api/notifications/subscribe", {
