@@ -34,20 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginUser) => {
-      try {
-        const res = await apiRequest("POST", "/api/login", credentials);
-        return await res.json();
-      } catch (err: any) {
-        // Add the full error object including status and data for verification handling
-        if (err.response) {
-          const errorData = await err.response.json();
-          const error = new Error(errorData.message || "Inloggning misslyckades");
-          (error as any).status = err.response.status;
-          (error as any).data = errorData;
-          throw error;
-        }
-        throw err;
-      }
+      const res = await apiRequest("POST", "/api/login", credentials);
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/profile"] });
@@ -57,12 +45,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
-      // Don't show toast for verification errors as they are handled separately
-      if (!(error.message?.includes("Kontot är inte verifierat") || 
-          ((error as any).status === 400 && (error as any).data?.needsVerification))) {
+      // Don't show a toast for verification errors as those are handled in the auth.tsx component
+      const errorMessage = error.message || "";
+      if (!errorMessage.includes("Kontot är inte verifierat")) {
         toast({
           title: "Inloggning misslyckades",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
       }

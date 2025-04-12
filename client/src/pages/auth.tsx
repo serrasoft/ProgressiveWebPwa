@@ -109,24 +109,52 @@ export default function Auth() {
 
   // Handle login
   const onLogin = async (data: LoginForm) => {
-    loginMutation.mutate(data, {
-      onSuccess: () => {
-        // Store credentials for offline use
-        localStorage.setItem('offlineAuth', JSON.stringify({
-          email: data.email,
-          timestamp: new Date().toISOString()
-        }));
-        setLocation("/");
-      },
-      onError: (error: any) => {
-        // Handle needs verification error
-        if (error.message?.includes("Kontot är inte verifierat") || 
-            (error.status === 400 && error.data?.needsVerification)) {
-          setEmailToVerify(data.email);
-          setMode("verify");
+    try {
+      loginMutation.mutate(data, {
+        onSuccess: () => {
+          // Store credentials for offline use
+          localStorage.setItem('offlineAuth', JSON.stringify({
+            email: data.email,
+            timestamp: new Date().toISOString()
+          }));
+          setLocation("/");
+        },
+        onError: async (error: any) => {
+          // Handle needs verification error
+          const errorResponse = error.response;
+          
+          // If response contains "Kontot är inte verifierat" message
+          if (error.message?.includes("Kontot är inte verifierat")) {
+            setEmailToVerify(data.email);
+            setMode("verify");
+            // Send a verification code again for convenience
+            if (data.email) {
+              resendVerificationMutation.mutate({ email: data.email });
+            }
+          }
+          // Try to parse error response
+          else if (errorResponse) {
+            try {
+              const responseData = await errorResponse.json();
+              if (responseData.needsVerification && responseData.email) {
+                setEmailToVerify(responseData.email);
+                setMode("verify");
+                // Send a verification code again for convenience
+                resendVerificationMutation.mutate({ email: responseData.email });
+              }
+            } catch (parseError) {
+              // If we can't parse the response, just set the email from the form
+              if (error.message?.includes("Kontot är inte verifierat")) {
+                setEmailToVerify(data.email);
+                setMode("verify");
+              }
+            }
+          }
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+    }
   };
 
   // Handle verification
@@ -373,6 +401,9 @@ export default function Auth() {
                             maxLength={4}
                           />
                         </FormControl>
+                        <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          Kan inte hitta verifieringskoden? Kontrollera din skräppostmapp (skräpkorg).
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}

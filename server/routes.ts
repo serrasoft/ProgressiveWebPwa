@@ -318,7 +318,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.session.email = email;
         return res.status(400).json({ 
           message: "Kontot är inte verifierat",
-          needsVerification: true
+          needsVerification: true,
+          email: email // Send email back to client for verification form
         });
       }
 
