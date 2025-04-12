@@ -120,7 +120,8 @@ export default function Auth() {
       },
       onError: (error: any) => {
         // Handle needs verification error
-        if (error.status === 400 && error.data?.needsVerification) {
+        if (error.message?.includes("Kontot är inte verifierat") || 
+            (error.status === 400 && error.data?.needsVerification)) {
           setEmailToVerify(data.email);
           setMode("verify");
         }
@@ -190,7 +191,7 @@ export default function Auth() {
             <CardDescription>
               {mode === "login" && "Ange din e-post och lösenord för att logga in"}
               {mode === "register" && "Registrera dig med din e-postadress"}
-              {mode === "verify" && "Ange 4-siffrig kod från e-postmeddelandet"}
+              {mode === "verify" && "Ange 4-siffrig kod från e-postmeddelandet. Kontrollera skräpposten om du inte ser meddelandet."}
             </CardDescription>
           </CardHeader>
           <CardContent>
