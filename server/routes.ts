@@ -471,6 +471,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
+  
+  // Print confirmation of VAPID keys setup
+  console.log('VAPID keys setup with public key starting with:', 
+    process.env.VAPID_PUBLIC_KEY?.substring(0, 10) + '...');
 
   app.get("/api/notifications", async (_req, res) => {
     try {
