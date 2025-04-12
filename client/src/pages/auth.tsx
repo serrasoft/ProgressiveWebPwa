@@ -308,11 +308,11 @@ export default function Auth() {
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel>
-                            Jag godkänner att BRF Docenten behandlar mina personuppgifter
+                            Jag godkänner att 'Bergakungen' via Serrasoft AB behandlar mina uppgifter
                           </FormLabel>
                           <p className="text-xs text-muted-foreground">
                             Dina uppgifter används endast för att tillhandahålla tjänsten och kommer inte att delas med tredje part. 
-                            Du kan när som helst begära att få dina uppgifter raderade genom att kontakta föreningen.
+                            Du kan när som helst radera alla dina uppgifter inne i appen under Profil.
                           </p>
                         </div>
                         <FormMessage />

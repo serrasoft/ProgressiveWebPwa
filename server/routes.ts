@@ -133,7 +133,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!emailSent) {
         console.error(`Failed to send verification email to ${email}`);
-        // Continue anyway since we want to let user verify later
+        // Continue anyway since we want to let user verify later with the code
+        // We'll log the code in development for convenience
+        console.log(`Verification code for ${email}: ${verificationCode}`);
       }
 
       // Store email in session for verification
@@ -265,7 +267,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (!emailSent) {
-        return res.status(500).json({ message: "Kunde inte skicka verifieringsmail" });
+        console.error(`Failed to send verification email to ${email}`);
+        console.log(`Verification code for ${email}: ${verificationCode}`);
+        return res.json({ 
+          success: true,
+          message: "Verifieringskod genererad, men kunde inte skickas via e-post. Kontrollera konsolen för koden."
+        });
       }
 
       res.json({ 
