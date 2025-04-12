@@ -288,6 +288,15 @@ export async function subscribeToNotifications(userId: number) {
     console.log('Push-prenumeration skapad:', subscription);
 
     // Using the userId parameter passed to this function
+    const subscriptionData = subscription.toJSON();
+    
+    // Print detailed subscription information for troubleshooting
+    console.log("Push subscription details:", {
+      endpoint: subscriptionData.endpoint?.substring(0, 50) + '...',
+      auth: subscriptionData.keys?.auth ? 'present' : 'missing',
+      p256dh: subscriptionData.keys?.p256dh ? 'present' : 'missing',
+      expirationTime: subscriptionData.expirationTime
+    });
 
     console.log("Registrerar prenumerationen på servern...");
     const response = await fetch("/api/notifications/subscribe", {
@@ -297,7 +306,7 @@ export async function subscribeToNotifications(userId: number) {
       },
       body: JSON.stringify({
         userId: userId,
-        subscription: subscription.toJSON(),
+        subscription: subscriptionData,
       }),
     });
 

@@ -570,19 +570,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       console.log('Sending notification payload:', payload);
 
-      const notifications = subscriptions.map(sub => {
-        console.log('Sending notification to subscription:', sub.id, sub.subscription);
-        return webpush.sendNotification(
-          sub.subscription as webpush.PushSubscription,
-          payload
-        ).catch(error => {
-          console.error(`Failed to send notification to subscription ${sub.id}:`, error);
-          if (error.statusCode === 410) {
-            // Subscription has expired or is invalid
-            console.log(`Subscription ${sub.id} is no longer valid`);
+      // Enhanced diagnostic logging to troubleshoot Web Push issues
+      console.log('==== Starting Web Push notification delivery ==== ');
+      console.log('Payload size:', payload.length, 'bytes');
+      
+      if (payload.length > 4096) {
+        console.warn('WARNING: Payload exceeds 4KB which may cause issues with some browsers');
+      }
+      
+      // Type definition for a push subscription
+      interface PushSubscriptionData {
+        endpoint?: string;
+        keys?: {
+          auth?: string;
+          p256dh?: string;
+        };
+        expirationTime?: number | null;
+      }
+      
+      // Log the first 5 subscriptions for detailed diagnostic information
+      const subscriptionsToLog = subscriptions.slice(0, 5);
+      subscriptionsToLog.forEach((sub, index) => {
+        let subscriptionObj: PushSubscriptionData = {};
+        
+        try {
+          if (typeof sub.subscription === 'string') {
+            subscriptionObj = JSON.parse(sub.subscription) as PushSubscriptionData;
+          } else {
+            subscriptionObj = sub.subscription as PushSubscriptionData;
           }
-          return null;
+        } catch (e) {
+          console.error('Failed to parse subscription for logging:', e);
+        }
+        
+        console.log(`Subscription ${index+1} details:`, {
+          id: sub.id,
+          endpoint: subscriptionObj?.endpoint 
+            ? subscriptionObj.endpoint.substring(0, 50) + '...' 
+            : 'missing endpoint',
+          userId: sub.userId,
+          // Use timestamp if available
+          created: sub.createdAt ? new Date(sub.createdAt).toISOString() : 'unknown',
+          hasKeys: subscriptionObj?.keys ? 'yes' : 'no'
         });
+      });
+      
+      const notifications = subscriptions.map(sub => {
+        console.log(`Sending notification to subscription ${sub.id} for user ${sub.userId}`);
+        
+        try {
+          // Parse subscription if it's a string
+          let subscriptionObj = {} as webpush.PushSubscription;
+          
+          if (typeof sub.subscription === 'string') {
+            try {
+              subscriptionObj = JSON.parse(sub.subscription) as webpush.PushSubscription;
+            } catch (e) {
+              console.error(`Failed to parse subscription string for ID ${sub.id}:`, e);
+              return Promise.resolve(null);
+            }
+          } else {
+            subscriptionObj = sub.subscription as webpush.PushSubscription;
+          }
+          
+          // Validate subscription format before sending
+          if (!subscriptionObj || !subscriptionObj.endpoint) {
+            console.error(`Invalid subscription format for ID ${sub.id}:`, subscriptionObj);
+            return Promise.resolve(null);
+          }
+          
+          return webpush.sendNotification(
+            subscriptionObj,
+            payload
+          ).then(result => {
+            console.log(`Successfully sent notification to subscription ${sub.id}:`, {
+              statusCode: result?.statusCode,
+              endpoint: subscriptionObj.endpoint?.substring(0, 30) + '...'
+            });
+            return result;
+          }).catch(error => {
+            console.error(`Failed to send notification to subscription ${sub.id}:`, {
+              statusCode: error?.statusCode,
+              message: error?.message,
+              body: error?.body?.substring(0, 100)
+            });
+            
+            if (error.statusCode === 410) {
+              // Subscription has expired or is invalid
+              console.log(`Subscription ${sub.id} is no longer valid - should be removed`);
+              // TODO: Add code to remove invalid subscriptions
+            } else if (error.statusCode === 404) {
+              console.error('Endpoint not found - subscription may have been unregistered');
+            } else if (error.statusCode === 400) {
+              console.error('Invalid request - check subscription format and payload');
+            } else if (error.statusCode === 401) {
+              console.error('Unauthorized - VAPID keys may be invalid');
+            } else if (error.statusCode === 429) {
+              console.error('Too many requests - rate limited by push service');
+            } else if (error.statusCode >= 500) {
+              console.error('Server error from push service');
+            }
+            
+            return null;
+          });
+        } catch (unexpectedError) {
+          console.error('Unexpected error preparing notification:', unexpectedError);
+          return Promise.resolve(null);
+        }
       });
 
       const results = await Promise.all(notifications);

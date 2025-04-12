@@ -200,7 +200,12 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('push', event => {
-  console.log('Push event received with data:', event.data ? event.data.text() : 'no payload');
+  console.log('🔔 Push event received!');
+  console.log('Push event data:', event.data ? event.data.text() : 'no payload');
+  
+  // Show this message in DevTools and logs to help with debugging
+  console.log('IMPORTANT: If using iOS 16.4+, ensure you\'re using Safari and the app is installed as a PWA');
+  console.log('Check browser compatibility: Firefox and Safari have different Web Push implementations');
 
   // Immediately wake all clients to ensure they receive the badge update
   const wakeClients = async () => {
