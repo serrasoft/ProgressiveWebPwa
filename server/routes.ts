@@ -419,6 +419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       res.json({
+        email: updatedUser.email,
         displayName: updatedUser.displayName,
         apartmentNumber: updatedUser.apartmentNumber,
         port: updatedUser.port,
@@ -428,6 +429,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Failed to update profile:', error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+  
+  // Delete user account and all associated data
+  app.delete("/api/account", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      
+      // Delete all push subscriptions for this user
+      await db.delete(schema.pushSubscriptions)
+        .where(eq(schema.pushSubscriptions.userId, userId));
+      
+      // Delete the user
+      await db.delete(schema.users)
+        .where(eq(schema.users.id, userId));
+      
+      // Destroy the session
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Error destroying session:', err);
+          return res.status(500).json({ message: "Kontot har raderats men det gick inte att logga ut" });
+        }
+        
+        res.json({ success: true, message: "Konto och alla uppgifter har raderats" });
+      });
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      res.status(500).json({ error: "Det gick inte att radera kontot" });
     }
   });
 
