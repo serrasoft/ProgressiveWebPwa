@@ -128,7 +128,7 @@ export default function Notifications() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
   
-  // Setup message listener for badge updates from service worker
+  // Setup message listener for badge updates and notifications from service worker
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     
@@ -144,6 +144,42 @@ export default function Notifications() {
         } catch (error) {
           console.error('Failed to update badge from service worker message:', error);
         }
+      } else if (event.data?.type === 'SHOW_NOTIFICATION') {
+        // This is a fallback for iOS notifications - show directly in the browser
+        console.log('Showing fallback in-app notification:', event.data);
+        
+        // Use the browser notification API as a fallback
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            // Create a notification directly in the browser (for iOS fallback)
+            new Notification(event.data.title, {
+              body: event.data.body,
+              icon: '/icons/Icon-192.png',
+              badge: '/icons/Icon-72.png',
+              tag: `notification-${Date.now()}`
+            });
+            console.log('Fallback notification shown successfully');
+            
+            // Also refresh the notifications list
+            refetch();
+          } catch (error) {
+            console.error('Failed to show fallback notification:', error);
+            
+            // Try to show a toast notification as last resort
+            toast({
+              title: event.data.title,
+              description: event.data.body,
+              duration: 10000, // longer duration for notification
+            });
+          }
+        } else {
+          // If Notification API is not available or permission not granted, use toast
+          toast({
+            title: event.data.title,
+            description: event.data.body,
+            duration: 10000, // longer duration for notification
+          });
+        }
       }
     };
     
@@ -152,7 +188,7 @@ export default function Notifications() {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [refetch, toast]);
 
   useEffect(() => {
     if (!isIOSDevice && !isSafariBrowser) {

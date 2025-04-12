@@ -242,8 +242,29 @@ self.addEventListener('push', event => {
   // Define unique tag for this notification to avoid duplicates
   const uniqueTag = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+  // Check if running on iOS
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream;
+  
   // Enhanced notification options with special attention to iOS support
-  const options = {
+  // Simplified options for iOS to avoid any compatibility issues
+  const options = isIOS ? {
+    // iOS-optimized notification options (minimal set)
+    body: notificationData.body || 'Ny notis från Bergakungen',
+    icon: '/icons/Icon-192.png',
+    badge: '/icons/Icon-72.png',
+    // Disable options that might cause issues on iOS
+    vibrate: undefined,
+    silent: false,
+    tag: notificationData.tag || uniqueTag,
+    // Include only essential data
+    data: {
+      url: notificationData.url || '/',
+      link: notificationData.link || null,
+      notificationId: notificationData.id || 1,
+      isiOS: true
+    }
+  } : {
+    // Full-featured options for other browsers
     body: notificationData.body || 'Ny notis från Bergakungen',
     icon: '/icons/Icon-192.png',
     badge: '/icons/Icon-72.png',
@@ -263,7 +284,7 @@ self.addEventListener('push', event => {
       link: notificationData.link || null, // Include the link if it exists
       dateOfArrival: Date.now(),
       notificationId: notificationData.id || 1,
-      isiOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream
+      isiOS: false
     },
     // Action buttons
     actions: [
@@ -332,18 +353,24 @@ self.addEventListener('push', event => {
       
       // Some browsers might need a second attempt for iOS
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream;
-      if (isIOS) {
-        // On iOS, also message clients to show a fallback notification
-        const allClients = await self.clients.matchAll({ type: 'window' });
-        allClients.forEach(client => {
-          client.postMessage({
-            type: 'SHOW_NOTIFICATION',
-            title: notificationData.title || 'Bergakungen',
-            body: notificationData.body || 'Ny notis från Bergakungen',
-            data: options.data
-          });
+      
+      // Always message clients to show a fallback notification
+      // This ensures iOS devices get the notification even if native push fails
+      const allClients = await self.clients.matchAll({ type: 'window' });
+      console.log(`Notifying ${allClients.length} clients for fallback notification`);
+      
+      allClients.forEach(client => {
+        client.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          title: notificationData.title || 'Bergakungen',
+          body: notificationData.body || 'Ny notis från Bergakungen',
+          link: notificationData.link || null,
+          data: options.data,
+          id: notificationData.id,
+          isIOS: isIOS,
+          timestamp: Date.now()
         });
-      }
+      });
     } catch (error) {
       console.error('Error showing notification:', error);
     }
