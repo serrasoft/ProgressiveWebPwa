@@ -91,8 +91,12 @@ export default function Settings() {
       // Request permission
       await requestNotificationPermission();
       
-      // Subscribe to push notifications
-      const subscription = await subscribeToNotifications();
+      if (!user || typeof user.id !== 'number') {
+        throw new Error("Du måste vara inloggad för att aktivera notiser");
+      }
+      
+      // Subscribe to push notifications with current user ID
+      const subscription = await subscribeToNotifications(user.id);
       
       if (subscription) {
         setNotificationsEnabled(true);

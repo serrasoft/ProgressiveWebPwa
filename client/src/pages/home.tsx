@@ -1,7 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExternalLink } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { ExternalLink, Bell } from "lucide-react";
 import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import InstallPrompt from "@/components/install-prompt";
+import { isPushNotificationSupported, requestNotificationPermission, subscribeToNotifications } from "@/lib/notifications";
 
 const quickLinks = [
   { title: "Docenten.se", href: "https://www.hsb.se/sodertorn/brf/docenten/", useInAppBrowser: true },
@@ -17,12 +23,30 @@ const quickLinks = [
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
 
   // Check if running as installed PWA
   const isInstalledPWA = window.matchMedia('(display-mode: standalone)').matches;
 
   // Check if running on iOS
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  
+  // Check if we should show notification prompt on first login after verification
+  useEffect(() => {
+    const shouldPrompt = sessionStorage.getItem('showNotificationPrompt') === 'true';
+    
+    if (shouldPrompt && user && isPushNotificationSupported()) {
+      // Only show if notifications aren't already granted
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        setShowNotificationPrompt(true);
+        // Remove the flag so we don't prompt again
+        sessionStorage.removeItem('showNotificationPrompt');
+      }
+    }
+  }, [user]);
 
   const handleLinkClick = (link: typeof quickLinks[0]) => (e: React.MouseEvent) => {
     if (link.openInSystemBrowser) {

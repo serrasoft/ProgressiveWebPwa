@@ -137,9 +137,11 @@ export default function Auth() {
           email: data.email,
           timestamp: new Date().toISOString()
         }));
+
+        // Store a session flag to prompt for notifications on first login
+        sessionStorage.setItem('showNotificationPrompt', 'true');
         
-        // We'll handle notification permissions on the settings page
-        // instead of immediately after verification
+        // Redirect to home page
         setLocation("/");
       }
     });
