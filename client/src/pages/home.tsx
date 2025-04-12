@@ -64,11 +64,77 @@ export default function Home() {
     // Otherwise, let the default behavior handle it (opens in new tab)
   };
 
+  // Function to handle enabling notifications
+  const handleEnableNotifications = async () => {
+    if (!user || typeof user.id !== 'number') {
+      toast({
+        title: "Fel",
+        description: "Du måste vara inloggad för att aktivera notiser",
+        variant: "destructive"
+      });
+      setShowNotificationPrompt(false);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Request notification permission
+      await requestNotificationPermission();
+      
+      // Subscribe to push notifications
+      await subscribeToNotifications(user.id);
+      
+      toast({
+        title: "Notiser aktiverade",
+        description: "Du kommer nu att få push-notiser från Bergakungen.",
+      });
+    } catch (error: any) {
+      console.error("Failed to enable notifications:", error);
+      toast({
+        title: "Kunde inte aktivera notiser",
+        description: error.message || "Ett okänt fel inträffade.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setShowNotificationPrompt(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Välkommen tillbaka!</h1>
 
       <InstallPrompt />
+
+      {/* Notification permission prompt */}
+      {showNotificationPrompt && (
+        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+          <Bell className="h-4 w-4 text-blue-800 dark:text-blue-400" />
+          <AlertTitle className="text-blue-800 dark:text-blue-400">Vill du aktivera notiser?</AlertTitle>
+          <AlertDescription className="text-blue-700 dark:text-blue-500">
+            <p className="mb-3">Få pushnotiser från BRF Docenten om viktig information från föreningen.</p>
+            <div className="flex space-x-3">
+              <Button 
+                variant="outline" 
+                className="border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+                onClick={() => setShowNotificationPrompt(false)}
+              >
+                Inte nu
+              </Button>
+              <Button 
+                variant="default"
+                className="bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700"
+                onClick={handleEnableNotifications}
+                disabled={loading}
+              >
+                {loading ? "Aktiverar..." : "Aktivera notiser"}
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>

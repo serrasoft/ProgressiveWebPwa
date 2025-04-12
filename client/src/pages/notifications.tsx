@@ -10,6 +10,7 @@ import {
   isBadgingSupported
 } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { isIOS, isSafari, supportsWebPushAPI } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ export default function Notifications() {
   const [isLoading, setIsLoading] = useState(false);
   const [badgingSupported, setBadgingSupported] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
   const isIOSDevice = isIOS();
   const isSafariBrowser = isSafari();
   const pushSupported = supportsWebPushAPI();
@@ -170,10 +172,19 @@ export default function Notifications() {
       return;
     }
 
+    if (!user || typeof user.id !== 'number') {
+      toast({
+        title: "Fel",
+        description: "Du måste vara inloggad för att aktivera notiser",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       await requestNotificationPermission();
-      const subscription = await subscribeToNotifications();
+      const subscription = await subscribeToNotifications(user.id);
       console.log('Push subscription created:', subscription);
       setIsSubscribed(true);
       toast({
