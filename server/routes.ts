@@ -14,13 +14,43 @@ import { eq, and } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { ZodError } from "zod";
 import session from "express-session";
+import { SessionData } from "express-session";
+
+// Extend the session interface to include our custom properties
+declare module 'express-session' {
+  interface SessionData {
+    userId?: number;
+    email?: string;
+  }
+}
 import { sendVerificationCode } from "./email";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 
+// Password utility functions
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString('hex')}.${salt}`;
+}
+
+async function comparePasswords(provided: string, stored: string): Promise<boolean> {
+  const [hashedPassword, salt] = stored.split('.');
+  const keyBuffer = Buffer.from(hashedPassword, 'hex');
+  const derivedKey = (await scryptAsync(provided, salt, 64)) as Buffer;
+  return timingSafeEqual(keyBuffer, derivedKey);
+}
+
+// Generate a random 4-digit verification code
+function generateVerificationCode(): string {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
 // Middleware to check if user is authenticated
 const requireAuth = (req: any, res: any, next: any) => {
-  if (!req.session.userId) {
+  if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   next();
@@ -48,7 +78,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/register", async (req, res) => {
     try {
-      const { email } = req.body;
+      // Validate registration data
+      let registrationData;
+      try {
+        registrationData = validatedRegisterUserSchema.parse(req.body);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          return res.status(400).json({
+            message: "Ogiltiga registreringsuppgifter",
+            errors: error.errors
+          });
+        }
+        throw error;
+      }
+
+      const { email, password } = registrationData;
 
       // Check if user already exists
       const existingUser = await db.select()
@@ -59,36 +103,225 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "E-postadressen är redan registrerad" });
       }
 
+      // Generate verification code
+      const verificationCode = generateVerificationCode();
+      const verificationExpiry = new Date();
+      verificationExpiry.setMinutes(verificationExpiry.getMinutes() + 30); // Code valid for 30 minutes
+
+      // Hash the password
+      const hashedPassword = await hashPassword(password);
+
       // Create new user
       const [user] = await db.insert(schema.users)
         .values({
           email,
-          password: "brf-docenten-2024", // Pre-filled password
-          offlineData: {}
+          password: hashedPassword,
+          verificationCode,
+          verificationExpiry,
+          verified: false,
+          offlineData: JSON.stringify({}) // Fix for the spread types error
         })
         .returning();
 
-      req.session.userId = user.id;
-      res.status(201).json({ success: true });
+      // Send verification email
+      const emailSent = await sendVerificationCode({
+        to: email,
+        code: verificationCode
+      });
+
+      if (!emailSent) {
+        console.error(`Failed to send verification email to ${email}`);
+        // Continue anyway since we want to let user verify later
+      }
+
+      // Store email in session for verification
+      req.session.email = email;
+      
+      res.status(201).json({ 
+        success: true,
+        message: "Registrering klar. Kontrollera din e-post för verifieringskod."
+      });
     } catch (error) {
       console.error('Registration error:', error);
       res.status(500).json({ message: "Kunde inte skapa konto" });
     }
   });
 
-  app.post("/api/login", async (req, res) => {
+  // Verify email with code
+  app.post("/api/verify", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      // Validate verification data
+      let verificationData;
+      try {
+        verificationData = verifyUserSchema.parse(req.body);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          return res.status(400).json({
+            message: "Ogiltig verifieringskod",
+            errors: error.errors
+          });
+        }
+        throw error;
+      }
 
+      const { email, code } = verificationData;
+
+      // Find the user
       const [user] = await db.select()
         .from(schema.users)
         .where(eq(schema.users.email, email));
 
-      if (!user || user.password !== password) {
+      if (!user) {
+        return res.status(400).json({ message: "Användaren finns inte" });
+      }
+
+      // Check if already verified
+      if (user.verified) {
+        req.session.userId = user.id;
+        return res.json({ 
+          success: true,
+          message: "Konto redan verifierat" 
+        });
+      }
+
+      // Check verification code
+      if (!user.verificationCode || user.verificationCode !== code) {
+        return res.status(400).json({ message: "Ogiltig verifieringskod" });
+      }
+
+      // Check if code has expired
+      if (user.verificationExpiry && new Date() > new Date(user.verificationExpiry)) {
+        return res.status(400).json({ message: "Verifieringskoden har gått ut" });
+      }
+
+      // Mark as verified
+      const [updatedUser] = await db.update(schema.users)
+        .set({
+          verified: true,
+          verificationCode: null,
+          verificationExpiry: null
+        })
+        .where(eq(schema.users.id, user.id))
+        .returning();
+
+      // Log the user in
+      req.session.userId = updatedUser.id;
+      
+      res.json({ 
+        success: true,
+        message: "E-postadressen har verifierats" 
+      });
+    } catch (error) {
+      console.error('Verification error:', error);
+      res.status(500).json({ message: "Kunde inte verifiera konto" });
+    }
+  });
+
+  // Resend verification code
+  app.post("/api/resend-verification", async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "E-postadress krävs" });
+      }
+
+      // Find the user
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.email, email));
+
+      if (!user) {
+        return res.status(400).json({ message: "Användaren finns inte" });
+      }
+
+      // Check if already verified
+      if (user.verified) {
+        return res.json({ 
+          success: true,
+          message: "Konto redan verifierat" 
+        });
+      }
+
+      // Generate new verification code
+      const verificationCode = generateVerificationCode();
+      const verificationExpiry = new Date();
+      verificationExpiry.setMinutes(verificationExpiry.getMinutes() + 30); // Code valid for 30 minutes
+
+      // Update user with new verification code
+      await db.update(schema.users)
+        .set({
+          verificationCode,
+          verificationExpiry
+        })
+        .where(eq(schema.users.id, user.id));
+
+      // Send verification email
+      const emailSent = await sendVerificationCode({
+        to: email,
+        code: verificationCode
+      });
+
+      if (!emailSent) {
+        return res.status(500).json({ message: "Kunde inte skicka verifieringsmail" });
+      }
+
+      res.json({ 
+        success: true,
+        message: "Ny verifieringskod har skickats" 
+      });
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      res.status(500).json({ message: "Kunde inte skicka ny verifieringskod" });
+    }
+  });
+
+  app.post("/api/login", async (req, res) => {
+    try {
+      // Validate login data
+      let loginData;
+      try {
+        loginData = loginUserSchema.parse(req.body);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          return res.status(400).json({
+            message: "Ogiltiga inloggningsuppgifter",
+            errors: error.errors
+          });
+        }
+        throw error;
+      }
+
+      const { email, password } = loginData;
+
+      // Find the user
+      const [user] = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.email, email));
+
+      if (!user) {
         return res.status(401).json({ message: "Fel e-postadress eller lösenord" });
       }
 
+      // Check if account is verified
+      if (!user.verified) {
+        // Store email in session for verification
+        req.session.email = email;
+        return res.status(400).json({ 
+          message: "Kontot är inte verifierat",
+          needsVerification: true
+        });
+      }
+
+      // Verify password
+      const isPasswordValid = await comparePasswords(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: "Fel e-postadress eller lösenord" });
+      }
+
+      // Log the user in
       req.session.userId = user.id;
+      
       res.json({ success: true });
     } catch (error) {
       console.error('Login error:', error);
@@ -137,17 +370,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
 
+      // Parse existing offlineData
+      let offlineDataObj = {};
+      if (user.offlineData) {
+        try {
+          if (typeof user.offlineData === 'string') {
+            offlineDataObj = JSON.parse(user.offlineData);
+          } else if (typeof user.offlineData === 'object') {
+            offlineDataObj = { ...user.offlineData as object };
+          }
+        } catch (e) {
+          console.error('Failed to parse offlineData:', e);
+        }
+      }
+
+      // Create updated offlineData
+      const updatedOfflineData = JSON.stringify({
+        ...offlineDataObj,
+        displayName: req.body.displayName,
+        apartmentNumber: req.body.apartmentNumber,
+        port: req.body.port,
+        phoneNumber: req.body.phoneNumber,
+        lastUpdated: new Date().toISOString(),
+      });
+
       const [updatedUser] = await db.update(schema.users)
         .set({
           displayName: req.body.displayName,
           apartmentNumber: req.body.apartmentNumber,
           port: req.body.port,
           phoneNumber: req.body.phoneNumber,
-          offlineData: {
-            ...user.offlineData,
-            ...req.body,
-            lastUpdated: new Date().toISOString(),
-          },
+          offlineData: updatedOfflineData,
         })
         .where(eq(schema.users.id, req.session.userId!))
         .returning();
