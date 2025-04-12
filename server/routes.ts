@@ -1,13 +1,22 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import webpush from "web-push";
-import { insertPushSubscriptionSchema } from "@shared/schema";
+import { 
+  insertPushSubscriptionSchema, 
+  registerUserSchema, 
+  verifyUserSchema,
+  loginUserSchema,
+  validatedRegisterUserSchema
+} from "@shared/schema";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import { ZodError } from "zod";
 import session from "express-session";
+import { sendVerificationCode } from "./email";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
 
 // Middleware to check if user is authenticated
 const requireAuth = (req: any, res: any, next: any) => {
