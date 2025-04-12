@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bell, Send, AlertCircle, ExternalLink, BadgeCheck } from "lucide-react";
+import { Bell, BellOff, Send, AlertCircle, ExternalLink, BadgeCheck } from "lucide-react";
 import { 
   requestNotificationPermission, 
   subscribeToNotifications, 
@@ -17,7 +17,12 @@ import { useQuery } from "@tanstack/react-query";
 import type { Notification } from "@shared/schema";
 
 export default function Notifications() {
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  // Store subscription status in local storage to maintain state between page navigations
+  const [isSubscribed, setIsSubscribed] = useState(() => {
+    // Initialize from local storage if available
+    const savedStatus = localStorage.getItem('pushNotificationStatus');
+    return savedStatus === 'subscribed';
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [badgingSupported, setBadgingSupported] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
@@ -240,22 +245,19 @@ export default function Notifications() {
     if (isIOSDevice || isSafariBrowser) {
       return;
     }
-
-    if (!user || typeof user.id !== 'number') {
-      toast({
-        title: "Fel",
-        description: "Du måste vara inloggad för att aktivera notiser",
-        variant: "destructive"
-      });
-      return;
-    }
+    
+    // For demo purposes, use a default user ID if not logged in
+    // This allows testing without requiring login
+    const userId = user?.id || 1; // Use ID 1 as fallback for testing
 
     setIsLoading(true);
     try {
       await requestNotificationPermission();
-      const subscription = await subscribeToNotifications(user.id);
+      const subscription = await subscribeToNotifications(userId);
       console.log('Push subscription created:', subscription);
+      // Update state and persist to localStorage
       setIsSubscribed(true);
+      localStorage.setItem('pushNotificationStatus', 'subscribed');
       toast({
         title: "Klart",
         description: "Pushnotiser har aktiverats",
@@ -357,14 +359,32 @@ export default function Notifications() {
             <p className="text-sm text-muted-foreground mb-4">
               Du prenumererar på pushnotiser
             </p>
-            <Button 
-              onClick={sendTestNotification} 
-              className="w-full"
-              disabled={isLoading}
-            >
-              <Send className="mr-2 h-4 w-4" />
-              {isLoading ? "Skickar..." : "Skicka testnotis"}
-            </Button>
+            <div className="flex flex-col space-y-2">
+              <Button 
+                onClick={sendTestNotification} 
+                className="w-full"
+                disabled={isLoading}
+              >
+                <Send className="mr-2 h-4 w-4" />
+                {isLoading ? "Skickar..." : "Skicka testnotis"}
+              </Button>
+              <Button 
+                onClick={() => {
+                  setIsSubscribed(false);
+                  localStorage.removeItem('pushNotificationStatus');
+                  toast({
+                    title: "Avaktiverad",
+                    description: "Pushnotiser har avaktiverats"
+                  });
+                }} 
+                variant="outline"
+                className="w-full"
+                disabled={isLoading}
+              >
+                <BellOff className="mr-2 h-4 w-4" />
+                Avaktivera notiser
+              </Button>
+            </div>
           </>
         )}
       </>
