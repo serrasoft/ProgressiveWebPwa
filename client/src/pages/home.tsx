@@ -65,14 +65,14 @@ const quickLinks: QuickLink[] = [
     title: "Boka snickarboa", 
     href: "https://mail.docenten.se/bokning/docenten/snickarboa/", 
     useInAppBrowser: true,
-    icon: Store,
+    icon: Wrench,
     color: "text-orange-500"
   },
   { 
     title: "Boka tvättstugan", 
     href: "https://docenten.pmdns.net", 
     useInAppBrowser: true,
-    icon: Wrench,
+    icon: Store,
     color: "text-blue-500"
   },
   { 
