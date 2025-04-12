@@ -1,7 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Bell } from "lucide-react";
+import { 
+  ExternalLink, 
+  Bell, 
+  HomeIcon, 
+  Newspaper, 
+  Users, 
+  Building2, 
+  Store, 
+  CalendarDays, 
+  Wrench, 
+  Facebook, 
+  UserRound, 
+  MessageSquareText
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -9,16 +22,79 @@ import { useAuth } from "@/hooks/use-auth";
 import InstallPrompt from "@/components/install-prompt";
 import { isPushNotificationSupported, requestNotificationPermission, subscribeToNotifications } from "@/lib/notifications";
 
-const quickLinks = [
-  { title: "Docenten.se", href: "https://www.hsb.se/sodertorn/brf/docenten/", useInAppBrowser: true },
-  { title: "Nyheter", href: "https://www.hsb.se/sodertorn/brf/docenten/nyheter/", useInAppBrowser: true },
-  { title: "Boka samlingslokalen", href: "https://mail.docenten.se/bokning/samlingslokalen/", useInAppBrowser: true },
-  { title: "Boka lägenheten", href: "https://mail.docenten.se/bokning/docenten/lagenheten/", useInAppBrowser: true },
-  { title: "Boka snickarboa", href: "https://mail.docenten.se/bokning/docenten/snickarboa/", useInAppBrowser: true },
-  { title: "Boka tvättstugan", href: "https://docenten.pmdns.net", useInAppBrowser: true },
-  { title: "Inofficiell Facebookgrupp", href: "https://www.facebook.com/groups/1233199001206234/" },
-  { title: "Nyheter från styrelsen (login)", href: "https://mitthsb.hsb.se/mitthsb/oversikt/meddelanden-fran-styrelsen/", openInSystemBrowser: true },
-  { title: "Mina bostadsuppgifter HSB (login)", href: "https://mitthsb.hsb.se/mitthsb/min-bostad/bostadsinformation/", openInSystemBrowser: true },
+// Define the type for quick links
+type QuickLink = {
+  title: string;
+  href: string;
+  useInAppBrowser?: boolean;
+  openInSystemBrowser?: boolean;
+  icon: React.ElementType;
+  color: string;
+};
+
+const quickLinks: QuickLink[] = [
+  { 
+    title: "Docenten.se", 
+    href: "https://www.hsb.se/sodertorn/brf/docenten/", 
+    useInAppBrowser: true,
+    icon: HomeIcon,
+    color: "text-emerald-500"
+  },
+  { 
+    title: "Nyheter", 
+    href: "https://www.hsb.se/sodertorn/brf/docenten/nyheter/", 
+    useInAppBrowser: true,
+    icon: Newspaper,
+    color: "text-amber-500"
+  },
+  { 
+    title: "Boka samlingslokalen", 
+    href: "https://mail.docenten.se/bokning/samlingslokalen/", 
+    useInAppBrowser: true,
+    icon: Users,
+    color: "text-indigo-500"
+  },
+  { 
+    title: "Boka lägenheten", 
+    href: "https://mail.docenten.se/bokning/docenten/lagenheten/", 
+    useInAppBrowser: true,
+    icon: Building2,
+    color: "text-cyan-500"
+  },
+  { 
+    title: "Boka snickarboa", 
+    href: "https://mail.docenten.se/bokning/docenten/snickarboa/", 
+    useInAppBrowser: true,
+    icon: Store,
+    color: "text-orange-500"
+  },
+  { 
+    title: "Boka tvättstugan", 
+    href: "https://docenten.pmdns.net", 
+    useInAppBrowser: true,
+    icon: Wrench,
+    color: "text-blue-500"
+  },
+  { 
+    title: "Inofficiell Facebookgrupp", 
+    href: "https://www.facebook.com/groups/1233199001206234/",
+    icon: Facebook,
+    color: "text-blue-700"
+  },
+  { 
+    title: "Nyheter från styrelsen (login)", 
+    href: "https://mitthsb.hsb.se/mitthsb/oversikt/meddelanden-fran-styrelsen/", 
+    openInSystemBrowser: true,
+    icon: MessageSquareText,
+    color: "text-rose-500"
+  },
+  { 
+    title: "Mina bostadsuppgifter HSB (login)", 
+    href: "https://mitthsb.hsb.se/mitthsb/min-bostad/bostadsinformation/", 
+    openInSystemBrowser: true,
+    icon: UserRound,
+    color: "text-violet-500"
+  },
 ];
 
 export default function Home() {
@@ -48,7 +124,7 @@ export default function Home() {
     }
   }, [user]);
 
-  const handleLinkClick = (link: typeof quickLinks[0]) => (e: React.MouseEvent) => {
+  const handleLinkClick = (link: QuickLink) => (e: React.MouseEvent) => {
     if (link.openInSystemBrowser) {
       e.preventDefault();
       // For iOS PWA, we need to use special handling to open Safari
@@ -142,19 +218,27 @@ export default function Home() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-2">
-            {quickLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={handleLinkClick(link)}
-                target={link.useInAppBrowser ? undefined : "_blank"}
-                rel={link.useInAppBrowser ? undefined : "noopener noreferrer"}
-                className="flex items-center justify-between p-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
-              >
-                <span>{link.title}</span>
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            ))}
+            {quickLinks.map((link) => {
+              const Icon = link.icon;
+              return (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={handleLinkClick(link)}
+                  target={link.useInAppBrowser ? undefined : "_blank"}
+                  rel={link.useInAppBrowser ? undefined : "noopener noreferrer"}
+                  className="flex items-center justify-between p-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`rounded-md p-2 bg-background/50 ${link.color}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <span>{link.title}</span>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </a>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
