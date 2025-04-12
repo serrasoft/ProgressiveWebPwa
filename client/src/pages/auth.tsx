@@ -1,169 +1,407 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
+import { Separator } from "@/components/ui/separator";
+import { Loader2 } from "lucide-react";
 
-const DEFAULT_PASSWORD = "brf-docenten-2024";
-
-const authSchema = z.object({
+// Registration form schema
+const registerSchema = z.object({
   email: z.string().email("Ogiltig e-postadress"),
-  password: z.string(),
+  password: z.string().min(8, "Lösenordet måste vara minst 8 tecken"),
+  confirmPassword: z.string()
+}).refine(
+  data => data.password === data.confirmPassword,
+  {
+    message: "Lösenorden matchar inte",
+    path: ["confirmPassword"]
+  }
+);
+
+// Login form schema
+const loginSchema = z.object({
+  email: z.string().email("Ogiltig e-postadress"),
+  password: z.string().min(1, "Lösenord måste anges"),
 });
 
-type AuthForm = z.infer<typeof authSchema>;
+// Verification form schema
+const verifySchema = z.object({
+  email: z.string().email("Ogiltig e-postadress"),
+  code: z.string().length(4, "Koden måste vara 4 siffror")
+});
+
+type RegisterForm = z.infer<typeof registerSchema>;
+type LoginForm = z.infer<typeof loginSchema>;
+type VerifyForm = z.infer<typeof verifySchema>;
 
 export default function Auth() {
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [mode, setMode] = useState<"login" | "register" | "verify">("login");
+  const [emailToVerify, setEmailToVerify] = useState<string>("");
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
+  const { 
+    user, 
+    loginMutation, 
+    registerMutation, 
+    verifyMutation, 
+    resendVerificationMutation 
+  } = useAuth();
 
-  const form = useForm<AuthForm>({
-    resolver: zodResolver(authSchema),
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  // Register form
+  const registerForm = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
       email: "",
-      password: DEFAULT_PASSWORD,
+      password: "",
+      confirmPassword: ""
     },
   });
 
-  const onSubmit = async (data: AuthForm) => {
-    try {
-      const endpoint = isRegistering ? "/api/register" : "/api/login";
+  // Login form
+  const loginForm = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
-      // Try online authentication first
-      try {
-        const response = await apiRequest("POST", endpoint, data);
+  // Verification form
+  const verifyForm = useForm<VerifyForm>({
+    resolver: zodResolver(verifySchema),
+    defaultValues: {
+      email: emailToVerify,
+      code: "",
+    },
+  });
 
-        if (response.ok) {
-          // Store credentials for offline use
-          localStorage.setItem('offlineAuth', JSON.stringify({
-            email: data.email,
-            timestamp: new Date().toISOString()
-          }));
+  // Update verification form when email changes
+  useEffect(() => {
+    verifyForm.setValue("email", emailToVerify);
+  }, [emailToVerify, verifyForm]);
 
-          toast({
-            title: "Välkommen!",
-            description: isRegistering 
-              ? "Ditt konto har skapats" 
-              : "Du är nu inloggad",
-          });
-          setLocation("/profile");
-          return;
-        }
-      } catch (error) {
-        // If we're offline, try offline authentication
-        if (!navigator.onLine) {
-          const offlineAuth = localStorage.getItem('offlineAuth');
-          if (offlineAuth) {
-            const stored = JSON.parse(offlineAuth);
-            if (stored.email === data.email && data.password === DEFAULT_PASSWORD) {
-              toast({
-                title: "Välkommen!",
-                description: "Du är nu inloggad (offline läge)",
-              });
-              setLocation("/profile");
-              return;
-            }
-          }
-          throw new Error("Kunde inte logga in offline. Vänligen kontrollera din internetanslutning.");
-        }
-        throw error;
+  // Handle registration
+  const onRegister = async (data: RegisterForm) => {
+    registerMutation.mutate(data, {
+      onSuccess: () => {
+        setEmailToVerify(data.email);
+        setMode("verify");
       }
+    });
+  };
 
-      const error = await response.json();
-      throw new Error(error.message);
-    } catch (error: any) {
-      toast({
-        title: "Fel",
-        description: error.message || "Något gick fel",
-        variant: "destructive",
-      });
+  // Handle login
+  const onLogin = async (data: LoginForm) => {
+    loginMutation.mutate(data, {
+      onSuccess: () => {
+        // Store credentials for offline use
+        localStorage.setItem('offlineAuth', JSON.stringify({
+          email: data.email,
+          timestamp: new Date().toISOString()
+        }));
+        setLocation("/");
+      },
+      onError: (error: any) => {
+        // Handle needs verification error
+        if (error.status === 400 && error.data?.needsVerification) {
+          setEmailToVerify(data.email);
+          setMode("verify");
+        }
+      }
+    });
+  };
+
+  // Handle verification
+  const onVerify = async (data: VerifyForm) => {
+    verifyMutation.mutate(data, {
+      onSuccess: () => {
+        // Store credentials for offline use
+        localStorage.setItem('offlineAuth', JSON.stringify({
+          email: data.email,
+          timestamp: new Date().toISOString()
+        }));
+        setLocation("/");
+      }
+    });
+  };
+
+  // Handle resend verification code
+  const onResendCode = () => {
+    if (emailToVerify) {
+      resendVerificationMutation.mutate({ email: emailToVerify });
     }
   };
 
+  if (user) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">
-        {isRegistering ? "Skapa konto" : "Logga in"}
-      </h1>
+    <div className="container mx-auto px-4 py-8 md:max-w-xl">
+      <div className="flex flex-col space-y-4 md:space-y-8">
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-2">
+            {mode === "login" && "Välkommen tillbaka!"}
+            {mode === "register" && "Skapa ett nytt konto"}
+            {mode === "verify" && "Verifiera din e-post"}
+          </h1>
+          <p className="text-muted-foreground">
+            {mode === "login" && "Logga in för att använda BRF Docentens bostadsapp"}
+            {mode === "register" && "Fyll i dina uppgifter för att komma igång"}
+            {mode === "verify" && "Kontrollera din e-post för verifieringskod"}
+          </p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isRegistering 
-              ? "Registrera dig med din e-postadress" 
-              : "Logga in med din e-postadress"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>E-post</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="namn@example.com" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        {/* Auth card */}
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-xl">
+              {mode === "login" && "Logga in"}
+              {mode === "register" && "Skapa konto"}
+              {mode === "verify" && "Verifiera e-post"}
+            </CardTitle>
+            <CardDescription>
+              {mode === "login" && "Ange din e-post och lösenord för att logga in"}
+              {mode === "register" && "Registrera dig med din e-postadress"}
+              {mode === "verify" && "Ange 4-siffrig kod från e-postmeddelandet"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {mode === "login" && (
+              <Form {...loginForm}>
+                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+                  <FormField
+                    control={loginForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-post</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email" 
+                            placeholder="din@epost.se" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Lösenord</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="password" 
-                        disabled 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={loginForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lösenord</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="password" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <div className="space-y-2">
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={form.formState.isSubmitting}
-                >
-                  {isRegistering ? "Skapa konto" : "Logga in"}
-                </Button>
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={loginMutation.isPending}
+                  >
+                    {loginMutation.isPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : "Logga in"}
+                  </Button>
+                </form>
+              </Form>
+            )}
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full"
-                  onClick={() => setIsRegistering(!isRegistering)}
-                >
-                  {isRegistering 
-                    ? "Har du redan ett konto? Logga in" 
-                    : "Ny användare? Skapa konto"}
+            {mode === "register" && (
+              <Form {...registerForm}>
+                <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
+                  <FormField
+                    control={registerForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-post</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email" 
+                            placeholder="din@epost.se" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={registerForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Lösenord</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="password" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={registerForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bekräfta lösenord</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="password" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={registerMutation.isPending}
+                  >
+                    {registerMutation.isPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : "Skapa konto"}
+                  </Button>
+                </form>
+              </Form>
+            )}
+
+            {mode === "verify" && (
+              <Form {...verifyForm}>
+                <form onSubmit={verifyForm.handleSubmit(onVerify)} className="space-y-4">
+                  <FormField
+                    control={verifyForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-post</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="email" 
+                            {...field} 
+                            disabled
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={verifyForm.control}
+                    name="code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Verifieringskod (4 siffror)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="1234" 
+                            {...field} 
+                            maxLength={4}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="space-y-2">
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={verifyMutation.isPending}
+                    >
+                      {verifyMutation.isPending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : "Verifiera konto"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={onResendCode}
+                      disabled={resendVerificationMutation.isPending}
+                    >
+                      {resendVerificationMutation.isPending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : "Skicka ny kod"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Mode switcher */}
+        {mode !== "verify" && (
+          <div className="text-center">
+            <Separator className="my-4" />
+            {mode === "login" ? (
+              <div className="text-sm text-center">
+                <span className="text-muted-foreground">Har du inget konto? </span>
+                <Button variant="link" className="p-0" onClick={() => setMode("register")}>
+                  Registrera dig
                 </Button>
               </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+            ) : (
+              <div className="text-sm text-center">
+                <span className="text-muted-foreground">Har du redan ett konto? </span>
+                <Button variant="link" className="p-0" onClick={() => setMode("login")}>
+                  Logga in
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Return from verification */}
+        {mode === "verify" && (
+          <div className="text-center">
+            <Button variant="link" onClick={() => setMode("login")}>
+              Tillbaka till inloggning
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

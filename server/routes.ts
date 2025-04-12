@@ -63,13 +63,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.set('trust proxy', 1);
 
   // Setup session middleware with secure settings
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   app.use(session({
-    secret: 'your-secret-key',
+    secret: 'brf-docenten-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: true, // Required for HTTPS
-      sameSite: 'none', // Required for cross-domain
+      secure: isProduction, // Only use secure cookies in production
+      sameSite: isProduction ? 'none' : 'lax', // Cross-domain in production
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       httpOnly: true
     }
@@ -330,7 +332,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/logout", (req, res) => {
-    req.session.destroy(() => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Error destroying session:', err);
+        return res.status(500).json({ message: "Kunde inte logga ut" });
+      }
       res.json({ success: true });
     });
   });
