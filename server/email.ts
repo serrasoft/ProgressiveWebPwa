@@ -1,10 +1,10 @@
 import sgMail from '@sendgrid/mail';
 
-// Initialize SendGrid
-if (!process.env.SENDGRID_API_KEY) {
-  console.error('SENDGRID_API_KEY is not set');
+// Initialize SendGrid - Use SENDGRID_API_KEY_B which has proper permissions
+if (!process.env.SENDGRID_API_KEY_B) {
+  console.error('SENDGRID_API_KEY_B is not set');
 } else {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY_B);
 }
 
 interface SendVerificationCodeOptions {
@@ -16,8 +16,8 @@ interface SendVerificationCodeOptions {
  * Sends a verification code to the user's email
  */
 export async function sendVerificationCode({ to, code }: SendVerificationCodeOptions): Promise<boolean> {
-  if (!process.env.SENDGRID_API_KEY) {
-    console.error('Cannot send email: SENDGRID_API_KEY is not set');
+  if (!process.env.SENDGRID_API_KEY_B) {
+    console.error('Cannot send email: SENDGRID_API_KEY_B is not set');
     return false;
   }
 
