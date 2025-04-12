@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bell, Send, AlertCircle, ExternalLink, BadgeCheck } from "lucide-react";
@@ -20,6 +20,8 @@ export default function Notifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [badgingSupported, setBadgingSupported] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const isIOSDevice = isIOS();
@@ -56,10 +58,41 @@ export default function Notifications() {
     },
   });
   
+  // Custom refetch function that updates polling timestamps
+  const updateNotifications = useCallback(async () => {
+    // Update last refresh time
+    setLastRefreshTime(new Date());
+    
+    // Calculate and set next refresh time (+30 seconds)
+    const nextTime = new Date();
+    nextTime.setSeconds(nextTime.getSeconds() + 30);
+    setNextRefreshTime(nextTime);
+    
+    // Perform the actual refetch
+    return await refetch();
+  }, [refetch]);
+  
   // Refetch when component mounts or is visited
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    // Initial update when mounting
+    updateNotifications();
+    
+    // Set up polling for iOS devices to fetch notifications periodically
+    // This serves as a fallback for iOS where push notifications may not work reliably
+    if (isIOSDevice) {
+      console.log("Setting up iOS notification polling fallback");
+      
+      // Poll for new notifications every 30 seconds on iOS devices
+      const pollingInterval = setInterval(() => {
+        console.log("iOS notification polling: Checking for new notifications");
+        updateNotifications();
+      }, 30000); // 30 seconds
+      
+      return () => {
+        clearInterval(pollingInterval);
+      };
+    }
+  }, [updateNotifications, isIOSDevice]);
 
   useEffect(() => {
     if (notificationsError) {
@@ -161,7 +194,7 @@ export default function Notifications() {
             console.log('Fallback notification shown successfully');
             
             // Also refresh the notifications list
-            refetch();
+            updateNotifications();
           } catch (error) {
             console.error('Failed to show fallback notification:', error);
             
@@ -188,7 +221,7 @@ export default function Notifications() {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
-  }, [refetch, toast]);
+  }, [updateNotifications, toast]);
 
   useEffect(() => {
     if (!isIOSDevice && !isSafariBrowser) {
@@ -274,10 +307,18 @@ export default function Notifications() {
           <div className="flex items-start gap-2 p-4 border rounded-lg bg-yellow-50">
             <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div>
-              <h3 className="font-medium text-yellow-800">Safari/iOS Begränsningar</h3>
+              <h3 className="font-medium text-yellow-800">Information för iOS-användare</h3>
               <p className="text-sm text-yellow-700 mt-1">
-                Pushnotiser stöds inte i Safari eller på iOS-enheter. För bästa upplevelse, 
-                vänligen lägg till denna app på hemskärmen eller använd en annan webbläsare som Chrome eller Edge.
+                Automatiska pushnotiser fungerar tyvärr inte alltid på iOS-enheter på grund av Apple-begränsningar. 
+                För att se nya meddelanden:
+              </p>
+              <ul className="text-sm text-yellow-700 mt-2 list-disc pl-5 space-y-1">
+                <li>Besök denna sida regelbundet</li>
+                <li>Installera appen på hemskärmen för bästa upplevelse</li>
+                <li>Notiser uppdateras automatiskt var 30:e sekund när appen är öppen</li>
+              </ul>
+              <p className="text-sm text-yellow-700 mt-2">
+                Observera att badge-funktionen på app-ikonen fungerar även på iOS.
               </p>
             </div>
           </div>
@@ -425,6 +466,43 @@ export default function Notifications() {
       )}
 
       {/* System Notifications Card */}
+      {/* iOS Polling Status - Only show for iOS users */}
+      {isIOSDevice && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notis-status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col space-y-2 text-sm">
+              <div className="flex justify-between items-center">
+                <span>Senaste uppdatering:</span>
+                <span className="font-medium">
+                  {lastRefreshTime ? lastRefreshTime.toLocaleTimeString('sv-SE') : 'Inte tillgänglig'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Nästa uppdatering:</span>
+                <span className="font-medium">
+                  {nextRefreshTime ? nextRefreshTime.toLocaleTimeString('sv-SE') : 'Inte tillgänglig'}
+                </span>
+              </div>
+              <div className="mt-2">
+                <Button 
+                  onClick={() => updateNotifications()}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  <Bell className="mr-2 h-4 w-4" />
+                  Uppdatera nu
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Meddelanden</CardTitle>
