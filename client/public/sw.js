@@ -255,6 +255,7 @@ self.addEventListener('push', event => {
     // Data to pass to notification click handler
     data: {
       url: notificationData.url || '/',
+      link: notificationData.link || null, // Include the link if it exists
       dateOfArrival: Date.now(),
       notificationId: notificationData.id || 1,
       isiOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream
@@ -360,8 +361,11 @@ self.addEventListener('notificationclick', event => {
   // Close the notification
   event.notification.close();
 
-  // Get the URL from the notification data
-  const url = event.notification.data?.url || '/';
+  // Get the notification data
+  // First check if there's a link in the notification data
+  const notificationLink = event.notification.data?.link;
+  // If we have a link in the notification data, use it, otherwise fallback to the default URL or notifications page
+  const url = notificationLink || event.notification.data?.url || '/notifications';
   const isIOS = event.notification.data?.isiOS || false;
   
   // Check if a specific action was clicked

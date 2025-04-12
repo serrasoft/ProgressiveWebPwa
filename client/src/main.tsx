@@ -148,10 +148,20 @@ if ('serviceWorker' in navigator) {
             // Close the notification
             notification.close();
             
-            // Navigate to the URL if specified
-            const url = event.data.data?.url || '/';
+            // Check if there's a direct link to open instead of navigation within the app
+            const link = event.data.data?.link;
+            const url = link || event.data.data?.url || '/notifications';
+            
             window.focus();
-            window.location.href = url;
+            
+            // If we have a specific link, open it in the browser
+            if (link) {
+              // For external links, open in a new tab/window
+              window.open(link, '_blank');
+            } else {
+              // For internal app navigation, use normal navigation
+              window.location.href = url;
+            }
           };
         } catch (error) {
           console.error('Failed to show fallback notification:', error);

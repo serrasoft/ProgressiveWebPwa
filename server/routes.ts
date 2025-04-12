@@ -255,7 +255,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const payload = JSON.stringify({
         title: req.body.title,
         body: req.body.body || 'Nytt meddelande från Bergakungen',
-        url: req.body.link || '/', // Use provided link or default to home
+        url: '/', // Default URL (app home)
+        link: req.body.link || null, // Include the link if it exists for external navigation
         id: notification.id
       });
       console.log('Sending notification payload:', payload);
