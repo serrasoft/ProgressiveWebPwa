@@ -561,12 +561,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Created notification:', notification);
 
       // In the payload, add the body field as a separate field since it's not stored in the database
+      // Creating a more iOS-friendly payload structure
       const payload = JSON.stringify({
         title: req.body.title,
         body: req.body.body || 'Nytt meddelande från Bergakungen',
         url: '/', // Default URL (app home)
         link: req.body.link || null, // Include the link if it exists for external navigation
-        id: notification.id
+        id: notification.id,
+        // Additional fields for iOS compatibility
+        aps: {
+          alert: {
+            title: req.body.title,
+            body: req.body.body || 'Nytt meddelande från Bergakungen'
+          },
+          'content-available': 1,
+          // Simplified badge handling for iOS
+          badge: 1
+        }
       });
       console.log('Sending notification payload:', payload);
 
@@ -609,8 +620,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? subscriptionObj.endpoint.substring(0, 50) + '...' 
             : 'missing endpoint',
           userId: sub.userId,
-          // Use timestamp if available
-          created: sub.createdAt ? new Date(sub.createdAt).toISOString() : 'unknown',
+          // PushSubscription doesn't have createdAt in our schema
+          created: 'unknown',
           hasKeys: subscriptionObj?.keys ? 'yes' : 'no'
         });
       });
@@ -639,9 +650,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return Promise.resolve(null);
           }
           
+          // Define special options for push notification delivery with proper type definition
+          const pushOptions: webpush.RequestOptions = {
+            // Use a TTL of 24 hours for the notification
+            TTL: 86400,
+            // Set urgency to high for better iOS delivery
+            urgency: 'high' as webpush.Urgency,
+            // Add topic for better notification grouping
+            topic: 'bergakungen-notification'
+          };
+          
+          // Enhanced iOS-friendly push notification sending
           return webpush.sendNotification(
             subscriptionObj,
-            payload
+            payload,
+            pushOptions
           ).then(result => {
             console.log(`Successfully sent notification to subscription ${sub.id}:`, {
               statusCode: result?.statusCode,
