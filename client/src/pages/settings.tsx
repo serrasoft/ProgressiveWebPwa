@@ -57,10 +57,29 @@ export default function Settings() {
     setOfflineMode(savedOfflineMode);
   }, []);
   
+  // Load notification toggle state from localStorage, so it persists
+  useEffect(() => {
+    const savedNotificationState = localStorage.getItem('notificationsEnabled') === 'true';
+    if ('Notification' in window && Notification.permission === 'granted') {
+      setNotificationsEnabled(savedNotificationState || Notification.permission === 'granted');
+    }
+  }, []);
+  
   // Handle enabling notifications
   const handleNotificationsChange = async (enabled: boolean) => {
+    // Always check for user first
+    if (!user || typeof user.id !== 'number') {
+      toast({
+        title: "Inte inloggad",
+        description: "Du måste vara inloggad för att hantera notiser.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!enabled) {
       setNotificationsEnabled(false);
+      localStorage.setItem('notificationsEnabled', 'false');
       toast({
         title: "Notiser inaktiverade",
         description: "Du kommer inte längre att få push-notiser. Du kan aktivera dem igen senare.",
@@ -91,15 +110,12 @@ export default function Settings() {
       // Request permission
       await requestNotificationPermission();
       
-      if (!user || typeof user.id !== 'number') {
-        throw new Error("Du måste vara inloggad för att aktivera notiser");
-      }
-      
       // Subscribe to push notifications with current user ID
       const subscription = await subscribeToNotifications(user.id);
       
       if (subscription) {
         setNotificationsEnabled(true);
+        localStorage.setItem('notificationsEnabled', 'true');
         toast({
           title: "Notiser aktiverade",
           description: "Du kommer nu att få push-notiser från Bergakungen.",
@@ -107,6 +123,9 @@ export default function Settings() {
       }
     } catch (error: any) {
       console.error("Failed to enable notifications:", error);
+      // Revert the UI state to match the actual state
+      setNotificationsEnabled(false);
+      localStorage.setItem('notificationsEnabled', 'false');
       toast({
         title: "Kunde inte aktivera notiser",
         description: error.message || "Ett okänt fel inträffade.",

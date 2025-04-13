@@ -311,9 +311,20 @@ export async function subscribeToNotifications(userId: number) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Serverfel:", errorText);
-      throw new Error(`Det gick inte att registrera push-notiser: ${response.status} ${response.statusText}`);
+      let errorMessage = `Det gick inte att registrera push-notiser: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        // Use server's translated error messages if available
+        if (errorData && errorData.message) {
+          errorMessage = errorData.message;
+          console.error("Serverfel:", errorData);
+        }
+      } catch (parseError) {
+        // If we can't parse JSON, just use the response text
+        const errorText = await response.text();
+        console.error("Serverfel:", errorText);
+      }
+      throw new Error(errorMessage);
     }
 
     console.log("Push-notiser aktiverade framgångsrikt!");

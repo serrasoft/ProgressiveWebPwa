@@ -510,11 +510,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('Received subscription request:', req.body);
 
+      // First check if user is logged in
+      if (!req.session.userId) {
+        console.error('Subscription attempt without login session');
+        return res.status(401).json({ 
+          error: "Användaren är inte inloggad", 
+          message: "Du måste vara inloggad för att prenumerera på notiser."
+        });
+      }
+
       // First verify the user exists
       const user = await storage.getUser(req.body.userId);
       if (!user) {
         console.error('User not found:', req.body.userId);
-        return res.status(400).json({ error: "Invalid user ID" });
+        return res.status(400).json({ 
+          error: "Invalid user ID",
+          message: "Användaren kunde inte hittas. Vänligen logga in igen."
+        });
+      }
+
+      // Verify that the session user is the same as the requesting user
+      if (req.session.userId !== user.id) {
+        console.error(`Session user (${req.session.userId}) doesn't match requested user (${user.id})`);
+        return res.status(403).json({ 
+          error: "User mismatch", 
+          message: "Din session tillhör en annan användare. Vänligen logga ut och in igen."
+        });
+      }
+
+      // Check if endpoint exists in subscription data which is crucial for iOS
+      if (!req.body.subscription || !req.body.subscription.endpoint) {
+        console.error('Missing endpoint in subscription data:', req.body.subscription);
+        const isAppleEndpoint = req.body.subscription?.endpoint?.includes('apple.com');
+        
+        if (isAppleEndpoint) {
+          return res.status(400).json({ 
+            error: "iOS subscription error", 
+            message: "Ett problem uppstod med iOS-notiser. Vänligen kontrollera att din iOS-version är 16.4 eller senare och att appen är installerad på hemskärmen."
+          });
+        } else {
+          return res.status(400).json({ 
+            error: "Missing endpoint", 
+            message: "Prenumerationsinformationen saknar slutpunkt. Vänligen uppdatera din webbläsare."
+          });
+        }
       }
 
       let parsed;
@@ -524,7 +563,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         if (error instanceof ZodError) {
           console.error('Subscription validation error:', error.errors);
-          return res.status(400).json({ error: "Invalid subscription data", details: error.errors });
+          return res.status(400).json({ 
+            error: "Invalid subscription data", 
+            details: error.errors,
+            message: "Ogiltig prenumerationsdata. Vänligen försök igen."
+          });
         }
         throw error;
       }
@@ -535,7 +578,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(subscription);
     } catch (error) {
       console.error('Subscription error:', error);
-      res.status(400).json({ error: "Invalid subscription data" });
+      res.status(400).json({ 
+        error: "Invalid subscription data",
+        message: "Ett oväntat fel uppstod vid aktivering av notiser. Vänligen försök igen."
+      });
     }
   });
 
