@@ -225,7 +225,7 @@ self.addEventListener('push', event => {
       allClients.forEach(client => {
         client.postMessage({
           type: 'WAKE_UP',
-          isIOS: isIOS,
+          isIOS: userAgent && /iPad|iPhone|iPod/.test(userAgent),
           timestamp: Date.now()
         });
       });
@@ -255,7 +255,7 @@ self.addEventListener('push', event => {
   
   // Enhanced notification options with special attention to iOS support
   // Simplified options for iOS to avoid any compatibility issues
-  const options = isIOS ? {
+  const options = userAgent && /iPad|iPhone|iPod/.test(userAgent) ? {
     // iOS-optimized notification options (minimal set)
     body: notificationData.body || 'Ny notis från Bergakungen',
     icon: '/icons/Icon-192.png',
@@ -360,7 +360,7 @@ self.addEventListener('push', event => {
       console.log('Notification shown successfully');
       
       // Some browsers might need a second attempt for iOS
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream;
+      // Use previously defined isIOS from userAgent
       
       // Always message clients to show a fallback notification
       // This ensures iOS devices get the notification even if native push fails
@@ -375,7 +375,7 @@ self.addEventListener('push', event => {
           link: notificationData.link || null,
           data: options.data,
           id: notificationData.id,
-          isIOS: isIOS,
+          isIOS: userAgent && /iPad|iPhone|iPod/.test(userAgent),
           timestamp: Date.now()
         });
       });

@@ -231,31 +231,31 @@ export async function subscribeToNotifications(userId: number) {
   const vapidKeyStart = import.meta.env.VITE_VAPID_PUBLIC_KEY.substring(0, 6);
   const vapidKeyEnd = import.meta.env.VITE_VAPID_PUBLIC_KEY.substring(import.meta.env.VITE_VAPID_PUBLIC_KEY.length - 6);
   console.log(`VAPID nyckel är tillgänglig: ${vapidKeyStart}...${vapidKeyEnd}`);
+  
+  // Enhanced iOS detection and logging
+  if (isIOS()) {
+    console.log("iOS enhet detekterad, optimerar push-notiskonfiguration");
+    const iosVersion = parseInt(navigator.userAgent.match(/OS (\d+)_/)?.[1] || "0", 10);
+    console.log(`iOS version: ${iosVersion}`);
+    
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                        (navigator as any).standalone === true;
+    console.log(`Installerad som PWA: ${isStandalone}`);
+    
+    if (!isStandalone) {
+      throw new Error("För iOS-enheter måste appen installeras på hemskärmen först. Klicka på 'Dela' och sedan 'Lägg till på hemskärmen'.");
+    }
+    
+    if (iosVersion < 16) {
+      throw new Error("Push-notiser kräver iOS 16.4 eller senare. Din iOS-version är för gammal.");
+    }
+  }
 
   // Verify device support first
   if (!isPushNotificationSupported()) {
-    if (isIOS()) {
-      // For iOS users, provide specific guidance
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                          (navigator as any).standalone === true;
-      
-      if (!isStandalone) {
-        throw new Error(
-          "För att få push-notiser på iOS, installera först appen på startskärmen"
-        );
-      }
-      
-      // Check iOS version
-      const iosVersion = parseInt(navigator.userAgent.match(/OS (\d+)_/)?.[1] || "0", 10);
-      if (iosVersion < 16) {
-        throw new Error("Push-notiser kräver iOS 16.4 eller senare");
-      } else if (iosVersion === 16) {
-        // For iOS 16, need to check minor version (16.4+)
-        console.log("För iOS 16 behöver du iOS 16.4 eller senare för att få push-notiser");
-      }
-    } else {
-      throw new Error("Din enhet stöder inte push-notiser");
-    }
+    // We've already checked iOS-specific requirements above
+    // This will handle all other devices that don't support push notifications
+    throw new Error("Din enhet stöder inte push-notiser.");
   }
 
   try {
