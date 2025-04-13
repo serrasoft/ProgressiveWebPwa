@@ -38,10 +38,7 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
 export const registerUserSchema = z.object({
   email: z.string().email("Ogiltig e-postadress"),
   password: z.string().min(8, "Lösenordet måste vara minst 8 tecken"),
-  confirmPassword: z.string(),
-  gdprConsent: z.boolean().refine(val => val === true, {
-    message: "Du måste godkänna hantering av personuppgifter"
-  })
+  confirmPassword: z.string()
 });
 
 // Add validation to ensure passwords match

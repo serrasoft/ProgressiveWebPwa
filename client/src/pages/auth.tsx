@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
@@ -16,10 +15,7 @@ import { Loader2 } from "lucide-react";
 const registerSchema = z.object({
   email: z.string().email("Ogiltig e-postadress"),
   password: z.string().min(8, "Lösenordet måste vara minst 8 tecken"),
-  confirmPassword: z.string(),
-  gdprConsent: z.boolean().refine(val => val === true, {
-    message: "Du måste godkänna hantering av personuppgifter"
-  })
+  confirmPassword: z.string()
 }).refine(
   data => data.password === data.confirmPassword,
   {
@@ -69,8 +65,7 @@ export default function Auth() {
     defaultValues: {
       email: "",
       password: "",
-      confirmPassword: "",
-      gdprConsent: false
+      confirmPassword: ""
     },
   });
 
@@ -290,31 +285,6 @@ export default function Auth() {
                             {...field} 
                           />
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={registerForm.control}
-                    name="gdprConsent"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>
-                            Jag godkänner att BRF Docenten behandlar mina personuppgifter
-                          </FormLabel>
-                          <p className="text-xs text-muted-foreground">
-                            Dina uppgifter används endast för att tillhandahålla tjänsten och kommer inte att delas med tredje part. 
-                            Du kan när som helst begära att få dina uppgifter raderade genom att kontakta föreningen.
-                          </p>
-                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
