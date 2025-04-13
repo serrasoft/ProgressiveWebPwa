@@ -161,11 +161,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return httpServer;
   }
 
-  webpush.setVapidDetails(
-    'mailto:example@example.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
+  // Set proper contact email and log VAPID configuration status
+  console.log('Configuring VAPID keys for web push...');
+  try {
+    webpush.setVapidDetails(
+      'mailto:docenten@example.com', // Updated with a proper contact email
+      process.env.VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!
+    );
+    console.log('VAPID configuration successful - Public key length:', process.env.VAPID_PUBLIC_KEY!.length);
+  } catch (error) {
+    console.error('Failed to set VAPID details:', error);
+  }
 
   app.get("/api/notifications", async (_req, res) => {
     try {
@@ -261,16 +268,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       console.log('Sending notification payload:', payload);
 
+      // Log details about each subscription we're about to send to
+      subscriptions.forEach(sub => {
+        if (sub.subscription) {
+          try {
+            const parsed = typeof sub.subscription === 'string' 
+              ? JSON.parse(sub.subscription) 
+              : sub.subscription;
+            
+            console.log(`Subscription ${sub.id} details:`);
+            console.log(`- Endpoint: ${parsed.endpoint ? parsed.endpoint.substring(0, 30) + '...' : 'Missing'}`);
+            console.log(`- Auth: ${parsed.keys?.auth ? 'Present' : 'Missing'}`);
+            console.log(`- P256dh: ${parsed.keys?.p256dh ? 'Present' : 'Missing'}`);
+            
+            // Detect if this is likely an Apple device
+            if (parsed.endpoint && parsed.endpoint.includes('apple')) {
+              console.log(`- Detected: Likely iOS device`);
+            }
+          } catch (e) {
+            console.error('Failed to parse subscription details:', e);
+          }
+        }
+      });
+      
+      // Now attempt to send the notifications
       const notifications = subscriptions.map(sub => {
-        console.log('Sending notification to subscription:', sub.id, sub.subscription);
+        console.log('Sending notification to subscription:', sub.id);
         return webpush.sendNotification(
           sub.subscription as webpush.PushSubscription,
           payload
-        ).catch(error => {
-          console.error(`Failed to send notification to subscription ${sub.id}:`, error);
+        ).then(result => {
+          console.log(`Successfully sent notification to subscription ${sub.id}`, {
+            statusCode: result.statusCode,
+            headers: result.headers ? 'Present' : 'Missing'
+          });
+          return result;
+        }).catch(error => {
+          console.error(`Failed to send notification to subscription ${sub.id}:`, {
+            statusCode: error.statusCode,
+            message: error.message,
+            headers: error.headers ? JSON.stringify(error.headers) : 'No headers',
+            body: error.body ? JSON.stringify(error.body) : 'No body'
+          });
+          
           if (error.statusCode === 410) {
             // Subscription has expired or is invalid
             console.log(`Subscription ${sub.id} is no longer valid`);
+          } else if (error.statusCode === 400) {
+            console.log(`Subscription ${sub.id} has a bad request - likely malformed`);
+          } else if (error.statusCode === 404) {
+            console.log(`Subscription ${sub.id} not found - client may have unsubscribed`);
+          } else if (error.statusCode === 429) {
+            console.log(`Rate limited when sending to subscription ${sub.id}`);
           }
           return null;
         });

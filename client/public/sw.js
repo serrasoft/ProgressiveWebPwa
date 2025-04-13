@@ -200,7 +200,13 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('push', event => {
+  console.log('==================== PUSH NOTIFICATION RECEIVED ====================');
   console.log('Push event received with data:', event.data ? event.data.text() : 'no payload');
+  console.log('User Agent:', navigator.userAgent);
+  console.log('iOS Detection:', /iPad|iPhone|iPod/.test(navigator.userAgent) ? 'iOS Device Detected' : 'Not iOS');
+  console.log('Service Worker Scope:', self.registration.scope);
+  console.log('Service Worker State:', self.registration.active?.state);
+  console.log('==================================================================');
 
   // Immediately wake all clients to ensure they receive the badge update
   const wakeClients = async () => {
@@ -322,6 +328,26 @@ self.addEventListener('push', event => {
   // Try to use notification as persistent as possible to maximize chance of it showing
   const showNotification = async () => {
     try {
+      // Check if we have permission
+      if (self.Notification && self.Notification.permission) {
+        console.log('iOS Notification Permission State:', self.Notification.permission);
+      }
+
+      // Log the permission state for debugging
+      if (self.registration.pushManager) {
+        try {
+          const subscription = await self.registration.pushManager.getSubscription();
+          console.log('Push Subscription Status:', subscription ? 'Active' : 'Not Active');
+          if (subscription) {
+            // Only log parts of the subscription for security
+            console.log('Subscription endpoint available:', !!subscription.endpoint);
+          }
+        } catch (e) {
+          console.error('Error checking subscription:', e);
+        }
+      }
+
+      // Now try to show the notification
       await self.registration.showNotification(notificationData.title || 'Bergakungen', options);
       console.log('Notification shown successfully');
       
