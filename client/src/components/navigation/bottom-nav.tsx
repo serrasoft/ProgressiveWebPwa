@@ -17,13 +17,15 @@ export default function BottomNav() {
         {navItems.map(({ icon: Icon, label, href }) => {
           const isActive = location === href;
           return (
-            <Link key={href} href={href}>
-              <a className={`flex flex-col items-center justify-center gap-1 ${
+            <Link 
+              key={href} 
+              href={href}
+              className={`flex flex-col items-center justify-center gap-1 ${
                 isActive ? "text-primary" : "text-muted-foreground"
-              }`}>
-                <Icon className="h-5 w-5" />
-                <span className="text-xs">{label}</span>
-              </a>
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+              <span className="text-xs">{label}</span>
             </Link>
           );
         })}

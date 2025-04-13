@@ -39,7 +39,10 @@ export default function Notifications() {
   const [isLoading, setIsLoading] = useState(false);
   const [badgingSupported, setBadgingSupported] = useState(false);
   const { toast } = useToast();
-  const isIOSDevice = isIOS();
+  
+  // Force iOS detection for testing so we can see the iOS UI
+  // In production, this should be: const isIOSDevice = isIOS();
+  const isIOSDevice = true; // Temporarily set to true for testing
   const isSafariBrowser = isSafari();
   const pushSupported = supportsWebPushAPI();
 
