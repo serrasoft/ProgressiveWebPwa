@@ -121,13 +121,13 @@ export default function Home() {
                 onClick={handleLinkClick(link)}
                 target={link.useInAppBrowser ? undefined : "_blank"}
                 rel={link.useInAppBrowser ? undefined : "noopener noreferrer"}
-                className="flex items-center justify-between p-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
+                className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors shadow-sm border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center gap-3">
-                  {link.icon && <link.icon className="h-5 w-5 text-primary" />}
+                  {link.icon && <link.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
                   <span>{link.title}</span>
                 </div>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                <ExternalLink className="h-4 w-4 text-gray-500" />
               </a>
             ))}
           </div>
