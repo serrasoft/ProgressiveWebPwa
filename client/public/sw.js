@@ -253,25 +253,9 @@ self.addEventListener('push', event => {
   // Define unique tag for this notification to avoid duplicates
   const uniqueTag = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
-  // Enhanced notification options with special attention to iOS support
-  // Simplified options for iOS to avoid any compatibility issues
-  const options = userAgent && /iPad|iPhone|iPod/.test(userAgent) ? {
-    // iOS-optimized notification options (minimal set)
-    body: notificationData.body || 'Ny notis från Bergakungen',
-    icon: '/icons/Icon-192.png',
-    badge: '/icons/Icon-72.png',
-    // Disable options that might cause issues on iOS
-    vibrate: undefined,
-    silent: false,
-    tag: notificationData.tag || uniqueTag,
-    // Include only essential data
-    data: {
-      url: notificationData.url || '/',
-      link: notificationData.link || null,
-      notificationId: notificationData.id || 1,
-      isiOS: true
-    }
-  } : {
+  // Simplify notification options following what worked in ed6c540b
+  // Use a basic shared options set for all devices
+  const options = {
     // Full-featured options for other browsers
     body: notificationData.body || 'Ny notis från Bergakungen',
     icon: '/icons/Icon-192.png',

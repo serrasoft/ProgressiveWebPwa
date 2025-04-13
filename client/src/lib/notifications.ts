@@ -232,22 +232,22 @@ export async function subscribeToNotifications(userId: number) {
   const vapidKeyEnd = import.meta.env.VITE_VAPID_PUBLIC_KEY.substring(import.meta.env.VITE_VAPID_PUBLIC_KEY.length - 6);
   console.log(`VAPID nyckel är tillgänglig: ${vapidKeyStart}...${vapidKeyEnd}`);
   
-  // Enhanced iOS detection and logging
+  // Remove strict iOS validation to match working version at ed6c540b
   if (isIOS()) {
-    console.log("iOS enhet detekterad, optimerar push-notiskonfiguration");
-    const iosVersion = parseInt(navigator.userAgent.match(/OS (\d+)_/)?.[1] || "0", 10);
-    console.log(`iOS version: ${iosVersion}`);
+    console.log("iOS enhet detekterad");
+    
+    // Get iOS version for logging purposes only, but don't enforce restrictions
+    const iosVersionMatch = navigator.userAgent.match(/OS (\d+)_/);
+    const iosVersion = iosVersionMatch ? parseInt(iosVersionMatch[1], 10) : 'unknown';
+    console.log(`iOS version detected: ${iosVersion}`);
     
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                        (navigator as any).standalone === true;
+                         (navigator as any).standalone === true;
     console.log(`Installerad som PWA: ${isStandalone}`);
     
+    // Show warning but don't throw error if not installed
     if (!isStandalone) {
-      throw new Error("För iOS-enheter måste appen installeras på hemskärmen först. Klicka på 'Dela' och sedan 'Lägg till på hemskärmen'.");
-    }
-    
-    if (iosVersion < 16) {
-      throw new Error("Push-notiser kräver iOS 16.4 eller senare. Din iOS-version är för gammal.");
+      console.warn("iOS-enhet ej installerad som PWA - kan orsaka problem med notiser");
     }
   }
 
