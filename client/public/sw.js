@@ -347,12 +347,53 @@ self.addEventListener('push', event => {
         }
       }
 
-      // Now try to show the notification
-      await self.registration.showNotification(notificationData.title || 'Bergakungen', options);
-      console.log('Notification shown successfully');
+      // For Safari on iOS, ensure notification options are properly formatted
+      // Detect if this is an iOS device for special handling
+      const isIOS = /iPad|iPhone|iPod/.test(self.navigator?.userAgent || '') && !self.MSStream;
       
-      // Some browsers might need a second attempt for iOS
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream;
+      if (isIOS) {
+        console.log('iOS device detected, applying Safari-specific notification optimizations');
+        
+        // iOS Safari has limitations on notification options
+        const iosSafeOptions = {
+          body: options.body,
+          tag: options.tag || 'bergakungen-notification',
+          data: options.data,
+          // iOS Safari might not support these, but include them anyway
+          icon: options.icon,
+          badge: options.badge,
+          vibrate: [200, 100, 200] // Simple vibration pattern that works on iOS
+        };
+        
+        console.log('Using iOS-optimized notification options:', JSON.stringify(iosSafeOptions));
+        
+        try {
+          // First attempt with fully optimized options
+          await self.registration.showNotification(notificationData.title || 'Bergakungen', iosSafeOptions);
+          console.log('iOS notification shown successfully with optimized options');
+        } catch (iosError) {
+          console.error('Failed to show iOS notification with optimized options:', iosError);
+          
+          // Fallback to minimal options
+          try {
+            const minimalOptions = {
+              body: options.body,
+              tag: 'bergakungen-notification'
+            };
+            await self.registration.showNotification(notificationData.title || 'Bergakungen', minimalOptions);
+            console.log('iOS notification shown successfully with minimal options');
+          } catch (minimalError) {
+            console.error('Failed to show iOS notification with minimal options:', minimalError);
+            throw minimalError;
+          }
+        }
+      } else {
+        // Standard notification for other browsers
+        await self.registration.showNotification(notificationData.title || 'Bergakungen', options);
+        console.log('Notification shown successfully on non-iOS device');
+      }
+      
+      // For iOS, also try to show a fallback notification through client
       if (isIOS) {
         // On iOS, also message clients to show a fallback notification
         const allClients = await self.clients.matchAll({ type: 'window' });

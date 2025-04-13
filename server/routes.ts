@@ -9,6 +9,13 @@ import * as schema from "@shared/schema";
 import { ZodError } from "zod";
 import session from "express-session";
 
+// Define session type with userId
+declare module 'express-session' {
+  interface SessionData {
+    userId?: number;
+  }
+}
+
 // Middleware to check if user is authenticated
 const requireAuth = (req: any, res: any, next: any) => {
   if (!req.session.userId) {
@@ -135,10 +142,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           port: req.body.port,
           phoneNumber: req.body.phoneNumber,
           offlineData: {
-            ...user.offlineData,
-            ...req.body,
+            ...(user.offlineData as Record<string, any> || {}),
+            displayName: req.body.displayName,
+            apartmentNumber: req.body.apartmentNumber,
+            port: req.body.port,
+            phoneNumber: req.body.phoneNumber,
             lastUpdated: new Date().toISOString(),
-          },
+          } as Record<string, any>,
         })
         .where(eq(schema.users.id, req.session.userId!))
         .returning();

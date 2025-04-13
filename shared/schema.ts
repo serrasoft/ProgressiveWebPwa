@@ -11,7 +11,7 @@ export const users = pgTable("users", {
   port: varchar("port", { length: 10 }),
   phoneNumber: varchar("phone_number", { length: 20 }),
   // Store additional offline-capable profile data as JSON
-  offlineData: jsonb("offline_data"),
+  offlineData: jsonb("offline_data").$type<Record<string, any>>().default({}),
 });
 
 export const notifications = pgTable("notifications", {

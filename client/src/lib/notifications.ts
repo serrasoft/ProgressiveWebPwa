@@ -124,10 +124,59 @@ export async function clearAppBadge(): Promise<void> {
 }
 
 /**
- * Detects if we're running on iOS
+ * Detects if we're running on iOS and provides detailed version information
  */
 export function isIOS(): boolean {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const isAppleDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  
+  if (isAppleDevice) {
+    // Try to determine iOS version for debugging purposes
+    try {
+      const userAgent = navigator.userAgent;
+      // For iOS devices
+      const iosVersionMatch = userAgent.match(/OS (\d+)_(\d+)(?:_(\d+))?/);
+      // For newer iPads that report as Mac
+      const macVersionMatch = userAgent.match(/Version\/(\d+)\.(\d+)(?:\.(\d+))?/);
+      
+      if (iosVersionMatch) {
+        const majorVersion = parseInt(iosVersionMatch[1], 10);
+        const minorVersion = parseInt(iosVersionMatch[2], 10);
+        const patchVersion = iosVersionMatch[3] ? parseInt(iosVersionMatch[3], 10) : 0;
+        
+        console.log(`Detected iOS version: ${majorVersion}.${minorVersion}${iosVersionMatch[3] ? '.' + patchVersion : ''}`);
+        
+        // Check if we're on iOS 16.4+ which is needed for push notifications
+        const supportsPush = (majorVersion > 16) || (majorVersion === 16 && minorVersion >= 4);
+        console.log(supportsPush 
+          ? 'This iOS version supports web push notifications' 
+          : 'This iOS version does NOT support web push notifications');
+          
+        // Store version info in session storage for debugging
+        try {
+          sessionStorage.setItem('iosVersionInfo', JSON.stringify({
+            majorVersion,
+            minorVersion,
+            patchVersion,
+            supportsPush,
+            fullUserAgent: userAgent
+          }));
+        } catch (e) {
+          console.warn('Could not store iOS version info:', e);
+        }
+      } else if (macVersionMatch && userAgent.includes('Mac')) {
+        // Modern iPads identify as macOS in user agent
+        const majorVersion = parseInt(macVersionMatch[1], 10);
+        console.log(`Detected Safari version on iPad/Mac: ${majorVersion}.${macVersionMatch[2]}`);
+        console.log(majorVersion >= 16 
+          ? 'This Safari version likely supports web push notifications' 
+          : 'This Safari version likely does NOT support web push notifications');
+      }
+    } catch (e) {
+      console.error('Error determining iOS version:', e);
+    }
+  }
+  
+  return isAppleDevice;
 }
 
 /**
