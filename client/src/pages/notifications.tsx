@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bell, BellOff, Send, AlertCircle, ExternalLink, BadgeCheck } from "lucide-react";
+import { Bell, Send, AlertCircle, ExternalLink, BadgeCheck } from "lucide-react";
 import { 
   requestNotificationPermission, 
   subscribeToNotifications, 
@@ -10,25 +10,16 @@ import {
   isBadgingSupported
 } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { isIOS, isSafari, supportsWebPushAPI } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import type { Notification } from "@shared/schema";
 
 export default function Notifications() {
-  // Store subscription status in local storage to maintain state between page navigations
-  const [isSubscribed, setIsSubscribed] = useState(() => {
-    // Initialize from local storage if available
-    const savedStatus = localStorage.getItem('pushNotificationStatus');
-    return savedStatus === 'subscribed';
-  });
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [badgingSupported, setBadgingSupported] = useState(false);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-  const [nextRefreshTime, setNextRefreshTime] = useState<Date | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
   const isIOSDevice = isIOS();
   const isSafariBrowser = isSafari();
   const pushSupported = supportsWebPushAPI();
@@ -63,41 +54,10 @@ export default function Notifications() {
     },
   });
   
-  // Custom refetch function that updates polling timestamps
-  const updateNotifications = useCallback(async () => {
-    // Update last refresh time
-    setLastRefreshTime(new Date());
-    
-    // Calculate and set next refresh time (+30 seconds)
-    const nextTime = new Date();
-    nextTime.setSeconds(nextTime.getSeconds() + 30);
-    setNextRefreshTime(nextTime);
-    
-    // Perform the actual refetch
-    return await refetch();
-  }, [refetch]);
-  
   // Refetch when component mounts or is visited
   useEffect(() => {
-    // Initial update when mounting
-    updateNotifications();
-    
-    // Set up polling for iOS devices to fetch notifications periodically
-    // This serves as a fallback for iOS where push notifications may not work reliably
-    if (isIOSDevice) {
-      console.log("Setting up iOS notification polling fallback");
-      
-      // Poll for new notifications every 30 seconds on iOS devices
-      const pollingInterval = setInterval(() => {
-        console.log("iOS notification polling: Checking for new notifications");
-        updateNotifications();
-      }, 30000); // 30 seconds
-      
-      return () => {
-        clearInterval(pollingInterval);
-      };
-    }
-  }, [updateNotifications, isIOSDevice]);
+    refetch();
+  }, [refetch]);
 
   useEffect(() => {
     if (notificationsError) {
@@ -166,7 +126,7 @@ export default function Notifications() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
   
-  // Setup message listener for badge updates and notifications from service worker
+  // Setup message listener for badge updates from service worker
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     
@@ -182,42 +142,6 @@ export default function Notifications() {
         } catch (error) {
           console.error('Failed to update badge from service worker message:', error);
         }
-      } else if (event.data?.type === 'SHOW_NOTIFICATION') {
-        // This is a fallback for iOS notifications - show directly in the browser
-        console.log('Showing fallback in-app notification:', event.data);
-        
-        // Use the browser notification API as a fallback
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try {
-            // Create a notification directly in the browser (for iOS fallback)
-            new Notification(event.data.title, {
-              body: event.data.body,
-              icon: '/icons/Icon-192.png',
-              badge: '/icons/Icon-72.png',
-              tag: `notification-${Date.now()}`
-            });
-            console.log('Fallback notification shown successfully');
-            
-            // Also refresh the notifications list
-            updateNotifications();
-          } catch (error) {
-            console.error('Failed to show fallback notification:', error);
-            
-            // Try to show a toast notification as last resort
-            toast({
-              title: event.data.title,
-              description: event.data.body,
-              duration: 10000, // longer duration for notification
-            });
-          }
-        } else {
-          // If Notification API is not available or permission not granted, use toast
-          toast({
-            title: event.data.title,
-            description: event.data.body,
-            duration: 10000, // longer duration for notification
-          });
-        }
       }
     };
     
@@ -226,7 +150,7 @@ export default function Notifications() {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
-  }, [updateNotifications, toast]);
+  }, []);
 
   useEffect(() => {
     if (!isIOSDevice && !isSafariBrowser) {
@@ -245,19 +169,13 @@ export default function Notifications() {
     if (isIOSDevice || isSafariBrowser) {
       return;
     }
-    
-    // For demo purposes, use a default user ID if not logged in
-    // This allows testing without requiring login
-    const userId = user?.id || 1; // Use ID 1 as fallback for testing
 
     setIsLoading(true);
     try {
       await requestNotificationPermission();
-      const subscription = await subscribeToNotifications(userId);
+      const subscription = await subscribeToNotifications();
       console.log('Push subscription created:', subscription);
-      // Update state and persist to localStorage
       setIsSubscribed(true);
-      localStorage.setItem('pushNotificationStatus', 'subscribed');
       toast({
         title: "Klart",
         description: "Pushnotiser har aktiverats",
@@ -309,18 +227,10 @@ export default function Notifications() {
           <div className="flex items-start gap-2 p-4 border rounded-lg bg-yellow-50">
             <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div>
-              <h3 className="font-medium text-yellow-800">Information för iOS-användare</h3>
+              <h3 className="font-medium text-yellow-800">Safari/iOS Begränsningar</h3>
               <p className="text-sm text-yellow-700 mt-1">
-                Automatiska pushnotiser fungerar tyvärr inte alltid på iOS-enheter på grund av Apple-begränsningar. 
-                För att se nya meddelanden:
-              </p>
-              <ul className="text-sm text-yellow-700 mt-2 list-disc pl-5 space-y-1">
-                <li>Besök denna sida regelbundet</li>
-                <li>Installera appen på hemskärmen för bästa upplevelse</li>
-                <li>Notiser uppdateras automatiskt var 30:e sekund när appen är öppen</li>
-              </ul>
-              <p className="text-sm text-yellow-700 mt-2">
-                Observera att badge-funktionen på app-ikonen fungerar även på iOS.
+                Pushnotiser stöds inte i Safari eller på iOS-enheter. För bästa upplevelse, 
+                vänligen lägg till denna app på hemskärmen eller använd en annan webbläsare som Chrome eller Edge.
               </p>
             </div>
           </div>
@@ -359,32 +269,14 @@ export default function Notifications() {
             <p className="text-sm text-muted-foreground mb-4">
               Du prenumererar på pushnotiser
             </p>
-            <div className="flex flex-col space-y-2">
-              <Button 
-                onClick={sendTestNotification} 
-                className="w-full"
-                disabled={isLoading}
-              >
-                <Send className="mr-2 h-4 w-4" />
-                {isLoading ? "Skickar..." : "Skicka testnotis"}
-              </Button>
-              <Button 
-                onClick={() => {
-                  setIsSubscribed(false);
-                  localStorage.removeItem('pushNotificationStatus');
-                  toast({
-                    title: "Avaktiverad",
-                    description: "Pushnotiser har avaktiverats"
-                  });
-                }} 
-                variant="outline"
-                className="w-full"
-                disabled={isLoading}
-              >
-                <BellOff className="mr-2 h-4 w-4" />
-                Avaktivera notiser
-              </Button>
-            </div>
+            <Button 
+              onClick={sendTestNotification} 
+              className="w-full"
+              disabled={isLoading}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              {isLoading ? "Skickar..." : "Skicka testnotis"}
+            </Button>
           </>
         )}
       </>
@@ -486,43 +378,6 @@ export default function Notifications() {
       )}
 
       {/* System Notifications Card */}
-      {/* iOS Polling Status - Only show for iOS users */}
-      {isIOSDevice && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Notis-status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col space-y-2 text-sm">
-              <div className="flex justify-between items-center">
-                <span>Senaste uppdatering:</span>
-                <span className="font-medium">
-                  {lastRefreshTime ? lastRefreshTime.toLocaleTimeString('sv-SE') : 'Inte tillgänglig'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Nästa uppdatering:</span>
-                <span className="font-medium">
-                  {nextRefreshTime ? nextRefreshTime.toLocaleTimeString('sv-SE') : 'Inte tillgänglig'}
-                </span>
-              </div>
-              <div className="mt-2">
-                <Button 
-                  onClick={() => updateNotifications()}
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  <Bell className="mr-2 h-4 w-4" />
-                  Uppdatera nu
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle>Meddelanden</CardTitle>

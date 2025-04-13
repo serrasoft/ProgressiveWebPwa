@@ -220,7 +220,7 @@ export async function requestNotificationPermission() {
   }
 }
 
-export async function subscribeToNotifications(userId: number) {
+export async function subscribeToNotifications() {
   // Check if VAPID public key is configured
   if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
     console.error("VAPID_PUBLIC_KEY saknas");
@@ -231,31 +231,31 @@ export async function subscribeToNotifications(userId: number) {
   const vapidKeyStart = import.meta.env.VITE_VAPID_PUBLIC_KEY.substring(0, 6);
   const vapidKeyEnd = import.meta.env.VITE_VAPID_PUBLIC_KEY.substring(import.meta.env.VITE_VAPID_PUBLIC_KEY.length - 6);
   console.log(`VAPID nyckel är tillgänglig: ${vapidKeyStart}...${vapidKeyEnd}`);
-  
-  // Remove strict iOS validation to match working version at ed6c540b
-  if (isIOS()) {
-    console.log("iOS enhet detekterad");
-    
-    // Get iOS version for logging purposes only, but don't enforce restrictions
-    const iosVersionMatch = navigator.userAgent.match(/OS (\d+)_/);
-    const iosVersion = iosVersionMatch ? parseInt(iosVersionMatch[1], 10) : 'unknown';
-    console.log(`iOS version detected: ${iosVersion}`);
-    
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                         (navigator as any).standalone === true;
-    console.log(`Installerad som PWA: ${isStandalone}`);
-    
-    // Show warning but don't throw error if not installed
-    if (!isStandalone) {
-      console.warn("iOS-enhet ej installerad som PWA - kan orsaka problem med notiser");
-    }
-  }
 
   // Verify device support first
   if (!isPushNotificationSupported()) {
-    // We've already checked iOS-specific requirements above
-    // This will handle all other devices that don't support push notifications
-    throw new Error("Din enhet stöder inte push-notiser.");
+    if (isIOS()) {
+      // For iOS users, provide specific guidance
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          (navigator as any).standalone === true;
+      
+      if (!isStandalone) {
+        throw new Error(
+          "För att få push-notiser på iOS, installera först appen på startskärmen"
+        );
+      }
+      
+      // Check iOS version
+      const iosVersion = parseInt(navigator.userAgent.match(/OS (\d+)_/)?.[1] || "0", 10);
+      if (iosVersion < 16) {
+        throw new Error("Push-notiser kräver iOS 16.4 eller senare");
+      } else if (iosVersion === 16) {
+        // For iOS 16, need to check minor version (16.4+)
+        console.log("För iOS 16 behöver du iOS 16.4 eller senare för att få push-notiser");
+      }
+    } else {
+      throw new Error("Din enhet stöder inte push-notiser");
+    }
   }
 
   try {
@@ -287,16 +287,9 @@ export async function subscribeToNotifications(userId: number) {
 
     console.log('Push-prenumeration skapad:', subscription);
 
-    // Using the userId parameter passed to this function
-    const subscriptionData = subscription.toJSON();
-    
-    // Print detailed subscription information for troubleshooting
-    console.log("Push subscription details:", {
-      endpoint: subscriptionData.endpoint?.substring(0, 50) + '...',
-      auth: subscriptionData.keys?.auth ? 'present' : 'missing',
-      p256dh: subscriptionData.keys?.p256dh ? 'present' : 'missing',
-      expirationTime: subscriptionData.expirationTime
-    });
+    // Use a hardcoded ID for now to simplify testing
+    // Note: In a real app, this would use the logged-in user's ID
+    const userId = 1;
 
     console.log("Registrerar prenumerationen på servern...");
     const response = await fetch("/api/notifications/subscribe", {
@@ -306,25 +299,14 @@ export async function subscribeToNotifications(userId: number) {
       },
       body: JSON.stringify({
         userId: userId,
-        subscription: subscriptionData,
+        subscription: subscription.toJSON(),
       }),
     });
 
     if (!response.ok) {
-      let errorMessage = `Det gick inte att registrera push-notiser: ${response.status} ${response.statusText}`;
-      try {
-        const errorData = await response.json();
-        // Use server's translated error messages if available
-        if (errorData && errorData.message) {
-          errorMessage = errorData.message;
-          console.error("Serverfel:", errorData);
-        }
-      } catch (parseError) {
-        // If we can't parse JSON, just use the response text
-        const errorText = await response.text();
-        console.error("Serverfel:", errorText);
-      }
-      throw new Error(errorMessage);
+      const errorText = await response.text();
+      console.error("Serverfel:", errorText);
+      throw new Error(`Det gick inte att registrera push-notiser: ${response.status} ${response.statusText}`);
     }
 
     console.log("Push-notiser aktiverade framgångsrikt!");

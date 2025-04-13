@@ -318,8 +318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.session.email = email;
         return res.status(400).json({ 
           message: "Kontot är inte verifierat",
-          needsVerification: true,
-          email: email // Send email back to client for verification form
+          needsVerification: true
         });
       }
 
@@ -420,7 +419,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       res.json({
-        email: updatedUser.email,
         displayName: updatedUser.displayName,
         apartmentNumber: updatedUser.apartmentNumber,
         port: updatedUser.port,
@@ -430,34 +428,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Failed to update profile:', error);
       res.status(500).json({ error: "Failed to update profile" });
-    }
-  });
-  
-  // Delete user account and all associated data
-  app.delete("/api/account", requireAuth, async (req, res) => {
-    try {
-      const userId = req.session.userId!;
-      
-      // Delete all push subscriptions for this user
-      await db.delete(schema.pushSubscriptions)
-        .where(eq(schema.pushSubscriptions.userId, userId));
-      
-      // Delete the user
-      await db.delete(schema.users)
-        .where(eq(schema.users.id, userId));
-      
-      // Destroy the session
-      req.session.destroy((err) => {
-        if (err) {
-          console.error('Error destroying session:', err);
-          return res.status(500).json({ message: "Kontot har raderats men det gick inte att logga ut" });
-        }
-        
-        res.json({ success: true, message: "Konto och alla uppgifter har raderats" });
-      });
-    } catch (error) {
-      console.error('Failed to delete account:', error);
-      res.status(500).json({ error: "Det gick inte att radera kontot" });
     }
   });
 
@@ -471,10 +441,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
-  
-  // Print confirmation of VAPID keys setup
-  console.log('VAPID keys setup with public key starting with:', 
-    process.env.VAPID_PUBLIC_KEY?.substring(0, 10) + '...');
 
   app.get("/api/notifications", async (_req, res) => {
     try {
@@ -510,39 +476,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('Received subscription request:', req.body);
 
-      // Rollback to more permissive authentication for push notifications
-      // This was working in the previous version at commit ed6c540b
-      let userId = req.body.userId;
-      
-      // First check if user exists
-      const user = await storage.getUser(userId);
+      // First verify the user exists
+      const user = await storage.getUser(req.body.userId);
       if (!user) {
-        console.warn('User ID not found in database, using default user ID: 1');
-        // Fall back to user ID 1 as a temporary workaround
-        userId = 1;
-      }
-      
-      // Set the user ID for the subscription regardless of session state
-      req.body.userId = userId;
-      
-      console.log('Using user ID for subscription:', userId);
-
-      // Check if endpoint exists in subscription data which is crucial for iOS
-      if (!req.body.subscription || !req.body.subscription.endpoint) {
-        console.error('Missing endpoint in subscription data:', req.body.subscription);
-        const isAppleEndpoint = req.body.subscription?.endpoint?.includes('apple.com');
-        
-        if (isAppleEndpoint) {
-          return res.status(400).json({ 
-            error: "iOS subscription error", 
-            message: "Ett problem uppstod med iOS-notiser. Vänligen kontrollera att din iOS-version är 16.4 eller senare och att appen är installerad på hemskärmen."
-          });
-        } else {
-          return res.status(400).json({ 
-            error: "Missing endpoint", 
-            message: "Prenumerationsinformationen saknar slutpunkt. Vänligen uppdatera din webbläsare."
-          });
-        }
+        console.error('User not found:', req.body.userId);
+        return res.status(400).json({ error: "Invalid user ID" });
       }
 
       let parsed;
@@ -552,11 +490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         if (error instanceof ZodError) {
           console.error('Subscription validation error:', error.errors);
-          return res.status(400).json({ 
-            error: "Invalid subscription data", 
-            details: error.errors,
-            message: "Ogiltig prenumerationsdata. Vänligen försök igen."
-          });
+          return res.status(400).json({ error: "Invalid subscription data", details: error.errors });
         }
         throw error;
       }
@@ -567,10 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(subscription);
     } catch (error) {
       console.error('Subscription error:', error);
-      res.status(400).json({ 
-        error: "Invalid subscription data",
-        message: "Ett oväntat fel uppstod vid aktivering av notiser. Vänligen försök igen."
-      });
+      res.status(400).json({ error: "Invalid subscription data" });
     }
   });
 
@@ -596,145 +527,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Created notification:', notification);
 
       // In the payload, add the body field as a separate field since it's not stored in the database
-      // Creating a more iOS-friendly payload structure
       const payload = JSON.stringify({
         title: req.body.title,
         body: req.body.body || 'Nytt meddelande från Bergakungen',
         url: '/', // Default URL (app home)
         link: req.body.link || null, // Include the link if it exists for external navigation
-        id: notification.id,
-        // Additional fields for iOS compatibility
-        aps: {
-          alert: {
-            title: req.body.title,
-            body: req.body.body || 'Nytt meddelande från Bergakungen'
-          },
-          'content-available': 1,
-          // Simplified badge handling for iOS
-          badge: 1
-        }
+        id: notification.id
       });
       console.log('Sending notification payload:', payload);
 
-      // Enhanced diagnostic logging to troubleshoot Web Push issues
-      console.log('==== Starting Web Push notification delivery ==== ');
-      console.log('Payload size:', payload.length, 'bytes');
-      
-      if (payload.length > 4096) {
-        console.warn('WARNING: Payload exceeds 4KB which may cause issues with some browsers');
-      }
-      
-      // Type definition for a push subscription
-      interface PushSubscriptionData {
-        endpoint?: string;
-        keys?: {
-          auth?: string;
-          p256dh?: string;
-        };
-        expirationTime?: number | null;
-      }
-      
-      // Log the first 5 subscriptions for detailed diagnostic information
-      const subscriptionsToLog = subscriptions.slice(0, 5);
-      subscriptionsToLog.forEach((sub, index) => {
-        let subscriptionObj: PushSubscriptionData = {};
-        
-        try {
-          if (typeof sub.subscription === 'string') {
-            subscriptionObj = JSON.parse(sub.subscription) as PushSubscriptionData;
-          } else {
-            subscriptionObj = sub.subscription as PushSubscriptionData;
-          }
-        } catch (e) {
-          console.error('Failed to parse subscription for logging:', e);
-        }
-        
-        console.log(`Subscription ${index+1} details:`, {
-          id: sub.id,
-          endpoint: subscriptionObj?.endpoint 
-            ? subscriptionObj.endpoint.substring(0, 50) + '...' 
-            : 'missing endpoint',
-          userId: sub.userId,
-          // PushSubscription doesn't have createdAt in our schema
-          created: 'unknown',
-          hasKeys: subscriptionObj?.keys ? 'yes' : 'no'
-        });
-      });
-      
       const notifications = subscriptions.map(sub => {
-        console.log(`Sending notification to subscription ${sub.id} for user ${sub.userId}`);
-        
-        try {
-          // Parse subscription if it's a string
-          let subscriptionObj = {} as webpush.PushSubscription;
-          
-          if (typeof sub.subscription === 'string') {
-            try {
-              subscriptionObj = JSON.parse(sub.subscription) as webpush.PushSubscription;
-            } catch (e) {
-              console.error(`Failed to parse subscription string for ID ${sub.id}:`, e);
-              return Promise.resolve(null);
-            }
-          } else {
-            subscriptionObj = sub.subscription as webpush.PushSubscription;
+        console.log('Sending notification to subscription:', sub.id, sub.subscription);
+        return webpush.sendNotification(
+          sub.subscription as webpush.PushSubscription,
+          payload
+        ).catch(error => {
+          console.error(`Failed to send notification to subscription ${sub.id}:`, error);
+          if (error.statusCode === 410) {
+            // Subscription has expired or is invalid
+            console.log(`Subscription ${sub.id} is no longer valid`);
           }
-          
-          // Validate subscription format before sending
-          if (!subscriptionObj || !subscriptionObj.endpoint) {
-            console.error(`Invalid subscription format for ID ${sub.id}:`, subscriptionObj);
-            return Promise.resolve(null);
-          }
-          
-          // Define special options for push notification delivery with proper type definition
-          const pushOptions: webpush.RequestOptions = {
-            // Use a TTL of 24 hours for the notification
-            TTL: 86400,
-            // Set urgency to high for better iOS delivery
-            urgency: 'high' as webpush.Urgency,
-            // Add topic for better notification grouping
-            topic: 'bergakungen-notification'
-          };
-          
-          // Enhanced iOS-friendly push notification sending
-          return webpush.sendNotification(
-            subscriptionObj,
-            payload,
-            pushOptions
-          ).then(result => {
-            console.log(`Successfully sent notification to subscription ${sub.id}:`, {
-              statusCode: result?.statusCode,
-              endpoint: subscriptionObj.endpoint?.substring(0, 30) + '...'
-            });
-            return result;
-          }).catch(error => {
-            console.error(`Failed to send notification to subscription ${sub.id}:`, {
-              statusCode: error?.statusCode,
-              message: error?.message,
-              body: error?.body?.substring(0, 100)
-            });
-            
-            if (error.statusCode === 410) {
-              // Subscription has expired or is invalid
-              console.log(`Subscription ${sub.id} is no longer valid - should be removed`);
-              // TODO: Add code to remove invalid subscriptions
-            } else if (error.statusCode === 404) {
-              console.error('Endpoint not found - subscription may have been unregistered');
-            } else if (error.statusCode === 400) {
-              console.error('Invalid request - check subscription format and payload');
-            } else if (error.statusCode === 401) {
-              console.error('Unauthorized - VAPID keys may be invalid');
-            } else if (error.statusCode === 429) {
-              console.error('Too many requests - rate limited by push service');
-            } else if (error.statusCode >= 500) {
-              console.error('Server error from push service');
-            }
-            
-            return null;
-          });
-        } catch (unexpectedError) {
-          console.error('Unexpected error preparing notification:', unexpectedError);
-          return Promise.resolve(null);
-        }
+          return null;
+        });
       });
 
       const results = await Promise.all(notifications);

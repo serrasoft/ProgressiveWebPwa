@@ -200,22 +200,7 @@ self.addEventListener('message', event => {
 });
 
 self.addEventListener('push', event => {
-  console.log('🔔 Push event received!');
-  console.log('Push event data:', event.data ? event.data.text() : 'no payload');
-  
-  // Enhanced debugging for iOS devices
-  const userAgent = self.navigator?.userAgent || '';
-  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !self.MSStream;
-  
-  if (isIOS) {
-    console.log('iOS DEVICE DETECTED: Special handling will be applied');
-    console.log('iOS Version:', userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/) ? 
-                             userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/)[1] : 'unknown');
-    console.log('IMPORTANT: For iOS, ensure using Safari and the app is installed as a PWA');
-  } else {
-    console.log('Non-iOS device detected, using standard push notification handling');
-  }
-  console.log('Check browser compatibility: Firefox and Safari have different Web Push implementations');
+  console.log('Push event received with data:', event.data ? event.data.text() : 'no payload');
 
   // Immediately wake all clients to ensure they receive the badge update
   const wakeClients = async () => {
@@ -225,7 +210,6 @@ self.addEventListener('push', event => {
       allClients.forEach(client => {
         client.postMessage({
           type: 'WAKE_UP',
-          isIOS: userAgent && /iPad|iPhone|iPod/.test(userAgent),
           timestamp: Date.now()
         });
       });
@@ -252,11 +236,9 @@ self.addEventListener('push', event => {
 
   // Define unique tag for this notification to avoid duplicates
   const uniqueTag = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
-  // Simplify notification options following what worked in ed6c540b
-  // Use a basic shared options set for all devices
+
+  // Enhanced notification options with special attention to iOS support
   const options = {
-    // Full-featured options for other browsers
     body: notificationData.body || 'Ny notis från Bergakungen',
     icon: '/icons/Icon-192.png',
     badge: '/icons/Icon-72.png',
@@ -276,7 +258,7 @@ self.addEventListener('push', event => {
       link: notificationData.link || null, // Include the link if it exists
       dateOfArrival: Date.now(),
       notificationId: notificationData.id || 1,
-      isiOS: false
+      isiOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream
     },
     // Action buttons
     actions: [
@@ -344,25 +326,19 @@ self.addEventListener('push', event => {
       console.log('Notification shown successfully');
       
       // Some browsers might need a second attempt for iOS
-      // Use previously defined isIOS from userAgent
-      
-      // Always message clients to show a fallback notification
-      // This ensures iOS devices get the notification even if native push fails
-      const allClients = await self.clients.matchAll({ type: 'window' });
-      console.log(`Notifying ${allClients.length} clients for fallback notification`);
-      
-      allClients.forEach(client => {
-        client.postMessage({
-          type: 'SHOW_NOTIFICATION',
-          title: notificationData.title || 'Bergakungen',
-          body: notificationData.body || 'Ny notis från Bergakungen',
-          link: notificationData.link || null,
-          data: options.data,
-          id: notificationData.id,
-          isIOS: userAgent && /iPad|iPhone|iPod/.test(userAgent),
-          timestamp: Date.now()
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream;
+      if (isIOS) {
+        // On iOS, also message clients to show a fallback notification
+        const allClients = await self.clients.matchAll({ type: 'window' });
+        allClients.forEach(client => {
+          client.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            title: notificationData.title || 'Bergakungen',
+            body: notificationData.body || 'Ny notis från Bergakungen',
+            data: options.data
+          });
         });
-      });
+      }
     } catch (error) {
       console.error('Error showing notification:', error);
     }

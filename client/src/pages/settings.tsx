@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme-provider";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect } from "react";
 import { isIOS, isPushNotificationSupported, requestNotificationPermission, subscribeToNotifications } from "@/lib/notifications";
 
@@ -19,7 +18,6 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { user } = useAuth();
 
   // Check notifications status and device type
   useEffect(() => {
@@ -57,29 +55,10 @@ export default function Settings() {
     setOfflineMode(savedOfflineMode);
   }, []);
   
-  // Load notification toggle state from localStorage, so it persists
-  useEffect(() => {
-    const savedNotificationState = localStorage.getItem('notificationsEnabled') === 'true';
-    if ('Notification' in window && Notification.permission === 'granted') {
-      setNotificationsEnabled(savedNotificationState || Notification.permission === 'granted');
-    }
-  }, []);
-  
   // Handle enabling notifications
   const handleNotificationsChange = async (enabled: boolean) => {
-    // Always check for user first
-    if (!user || typeof user.id !== 'number') {
-      toast({
-        title: "Inte inloggad",
-        description: "Du måste vara inloggad för att hantera notiser.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     if (!enabled) {
       setNotificationsEnabled(false);
-      localStorage.setItem('notificationsEnabled', 'false');
       toast({
         title: "Notiser inaktiverade",
         description: "Du kommer inte längre att få push-notiser. Du kan aktivera dem igen senare.",
@@ -110,12 +89,11 @@ export default function Settings() {
       // Request permission
       await requestNotificationPermission();
       
-      // Subscribe to push notifications with current user ID
-      const subscription = await subscribeToNotifications(user.id);
+      // Subscribe to push notifications
+      const subscription = await subscribeToNotifications();
       
       if (subscription) {
         setNotificationsEnabled(true);
-        localStorage.setItem('notificationsEnabled', 'true');
         toast({
           title: "Notiser aktiverade",
           description: "Du kommer nu att få push-notiser från Bergakungen.",
@@ -123,9 +101,6 @@ export default function Settings() {
       }
     } catch (error: any) {
       console.error("Failed to enable notifications:", error);
-      // Revert the UI state to match the actual state
-      setNotificationsEnabled(false);
-      localStorage.setItem('notificationsEnabled', 'false');
       toast({
         title: "Kunde inte aktivera notiser",
         description: error.message || "Ett okänt fel inträffade.",

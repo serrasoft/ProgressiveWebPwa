@@ -45,15 +45,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
-      // Don't show a toast for verification errors as those are handled in the auth.tsx component
-      const errorMessage = error.message || "";
-      if (!errorMessage.includes("Kontot är inte verifierat")) {
-        toast({
-          title: "Inloggning misslyckades",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Inloggning misslyckades",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
