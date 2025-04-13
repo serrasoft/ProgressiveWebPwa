@@ -508,27 +508,83 @@ self.addEventListener('notificationclick', event => {
     }
   };
 
-  // Special handling for iOS
+  // Special handling to open URL with iOS-specific optimizations
   const openUrl = async () => {
     try {
+      console.log(`Attempting to open URL: ${actionUrl}`);
+      
       // Get all open windows/tabs
       const windowClients = await clients.matchAll({ type: 'window' });
+      console.log(`Found ${windowClients.length} window clients`);
+      
+      // Also send notification to all clients about the notification click
+      // This ensures we have a fallback for iOS if the service worker can't open a window
+      windowClients.forEach(client => {
+        client.postMessage({
+          type: 'NOTIFICATION_CLICKED',
+          url: actionUrl,
+          timestamp: Date.now()
+        });
+      });
       
       // Check if there is already a window/tab open with the target URL
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        if (client.url === actionUrl && 'focus' in client) {
+        // Match on base URL to handle different routes
+        const clientBasePath = new URL(client.url).pathname.split('/')[1];
+        const actionBasePath = new URL(actionUrl, self.location.origin).pathname.split('/')[1];
+        
+        if ((clientBasePath === actionBasePath || actionUrl === '/') && 'focus' in client) {
+          console.log(`Focusing existing client window: ${client.url}`);
           return client.focus();
         }
       }
       
-      // If no window/tab is available, open one
+      // If no matching window/tab is found or it's an iOS device (which requires special handling)
+      if (isIOS) {
+        console.log('iOS device detected, using special handling for opening URL');
+        
+        // For iOS, ask all clients to handle the navigation
+        const iosHandled = windowClients.some(client => {
+          client.postMessage({
+            type: 'IOS_OPEN_URL',
+            url: actionUrl,
+            timestamp: Date.now()
+          });
+          return true; // Mark as handled if we sent the message
+        });
+        
+        // If we couldn't message any clients (unlikely), still try the normal approach
+        if (!iosHandled && clients.openWindow) {
+          console.log('No iOS clients available, falling back to clients.openWindow API');
+          return clients.openWindow(actionUrl);
+        }
+        
+        return; // We've messaged iOS clients, they'll handle navigation
+      }
+      
+      // For non-iOS, standard approach
       if (clients.openWindow) {
+        console.log(`Opening new window for URL: ${actionUrl}`);
         return clients.openWindow(actionUrl);
       }
       
     } catch (error) {
       console.error('Error opening URL:', error);
+      
+      // Even if normal opening fails, still try to message clients as fallback
+      try {
+        const fallbackClients = await clients.matchAll({ type: 'window' });
+        fallbackClients.forEach(client => {
+          client.postMessage({
+            type: 'URL_OPEN_FALLBACK',
+            url: actionUrl,
+            timestamp: Date.now()
+          });
+        });
+      } catch (fallbackError) {
+        console.error('Even fallback URL opening failed:', fallbackError);
+      }
     }
   };
 

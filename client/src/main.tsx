@@ -187,7 +187,83 @@ if ('serviceWorker' in navigator) {
     if (event.data.type === 'WAKE_UP') {
       console.log('Received wake up from service worker');
     }
+    
+    // Handle notification click navigation messages
+    if (event.data.type === 'NOTIFICATION_CLICKED' || 
+        event.data.type === 'IOS_OPEN_URL' || 
+        event.data.type === 'URL_OPEN_FALLBACK') {
+      console.log(`Received ${event.data.type} message with URL: ${event.data.url}`);
+      
+      // Check if the URL is external (starts with http) or a path in the app
+      const url = event.data.url || '/notifications';
+      
+      if (url.startsWith('http')) {
+        // For external URLs, open in a new window/tab
+        window.open(url, '_blank');
+      } else {
+        // For app navigation, update location
+        window.focus();
+        window.location.href = url;
+      }
+    }
+    
+    // Special iOS badge sync events
+    if (event.data.type === 'IOS_BADGE_SYNC') {
+      console.log('Received iOS badge sync request');
+      
+      try {
+        // Get notifications to set badge
+        const response = await fetch('/api/notifications');
+        if (response.ok) {
+          const notifications = await response.json();
+          if (Array.isArray(notifications) && notifications.length > 0) {
+            await setAppBadge(notifications.length);
+            console.log(`Badge synced to ${notifications.length} on iOS`);
+          } else {
+            await clearAppBadge();
+            console.log('Badge cleared during iOS sync');
+          }
+        }
+      } catch (error) {
+        console.error('iOS badge sync failed:', error);
+      }
+    }
   });
+  
+  // Setup periodic badge sync - especially helps on iOS
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) {
+    console.log('Setting up iOS badge sync interval');
+    
+    // Every 30 seconds, sync badge for iOS
+    const iosBadgeSyncInterval = setInterval(async () => {
+      try {
+        // Only sync when page is visible
+        if (document.visibilityState === 'visible') {
+          console.log('Performing periodic iOS badge sync');
+          
+          const response = await fetch('/api/notifications');
+          if (response.ok) {
+            const notifications = await response.json();
+            
+            if (Array.isArray(notifications) && notifications.length > 0) {
+              await setAppBadge(notifications.length);
+              console.log(`Periodic badge update: ${notifications.length}`);
+            } else {
+              await clearAppBadge();
+              console.log('Periodic badge clear: no notifications');
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Periodic badge sync failed:', error);
+      }
+    }, 30000); // 30 seconds
+    
+    // Clear interval on page unload
+    window.addEventListener('beforeunload', () => {
+      clearInterval(iosBadgeSyncInterval);
+    });
+  }
 }
 
 const root = createRoot(container);
