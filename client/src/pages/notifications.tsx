@@ -51,6 +51,7 @@ export default function Notifications() {
     staleTime: 10000, // Consider data fresh for 10 seconds
     refetchOnWindowFocus: true, // Refetch when tab gets focus
     queryFn: async () => {
+      console.log('Fetching notifications...');
       try {
         console.log('Fetching notifications...');
         const response = await fetch('/api/notifications');
@@ -127,25 +128,34 @@ export default function Notifications() {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         try {
-          await clearAppBadge();
-          console.log('Badge cleared on visibility change to visible');
+          // For the badge count issue (showing 10 when there are 11), let's make sure badge
+          // count is always in sync with the actual notifications count
+          if (notifications && Array.isArray(notifications)) {
+            console.log(`Setting badge to match actual count: ${notifications.length}`);
+            await setAppBadge(notifications.length);
+          } else {
+            await clearAppBadge();
+          }
+          
+          console.log('Badge updated on visibility change to visible');
           
           // Also notify service worker
           if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
             navigator.serviceWorker.controller.postMessage({
-              type: 'BADGE_CLEARED',
-              timestamp: Date.now()
+              type: 'BADGE_UPDATED',
+              timestamp: Date.now(),
+              count: notifications?.length || 0
             });
           }
         } catch (error) {
-          console.error('Error clearing badge on visibility change:', error);
+          console.error('Error updating badge on visibility change:', error);
         }
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
+  }, [notifications]);
   
   // Setup message listener for badge updates and fallback notifications from service worker
   useEffect(() => {
