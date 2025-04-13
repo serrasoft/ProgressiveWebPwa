@@ -13,8 +13,6 @@ import Admin from "./pages/admin";
 import Auth from "./pages/auth";
 import NotFound from "./pages/not-found";
 import React from "react";
-import { AuthProvider } from "./hooks/use-auth";
-import { ThemeProvider } from "./components/theme-provider";
 
 function Router() {
   return (
@@ -36,14 +34,10 @@ function Router() {
 export default function App() {
   return (
     <React.StrictMode>
-      <ThemeProvider defaultTheme="system">
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <Router />
-            <Toaster />
-          </AuthProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <Router />
+        <Toaster />
+      </QueryClientProvider>
     </React.StrictMode>
   );
 }

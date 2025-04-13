@@ -10,10 +10,6 @@ export const users = pgTable("users", {
   apartmentNumber: varchar("apartment_number", { length: 10 }),
   port: varchar("port", { length: 10 }),
   phoneNumber: varchar("phone_number", { length: 20 }),
-  // Verification fields
-  verified: boolean("verified").notNull().default(false),
-  verificationCode: varchar("verification_code", { length: 6 }),
-  verificationExpiry: timestamp("verification_expiry"),
   // Store additional offline-capable profile data as JSON
   offlineData: jsonb("offline_data"),
 });
@@ -34,40 +30,12 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   active: boolean("active").notNull().default(true),
 });
 
-// Schema for user registration
-export const registerUserSchema = z.object({
-  email: z.string().email("Ogiltig e-postadress"),
-  password: z.string().min(8, "Lösenordet måste vara minst 8 tecken"),
-  confirmPassword: z.string()
-});
-
-// Add validation to ensure passwords match
-export const validatedRegisterUserSchema = registerUserSchema.refine(
-  data => data.password === data.confirmPassword,
-  {
-    message: "Lösenorden matchar inte",
-    path: ["confirmPassword"]
-  }
-);
-
-// Schema for verifying a user
-export const verifyUserSchema = z.object({
-  email: z.string().email("Ogiltig e-postadress"),
-  code: z.string().length(4, "Koden måste vara 4 siffror")
-});
-
-// Schema for logging in
-export const loginUserSchema = z.object({
-  email: z.string().email("Ogiltig e-postadress"),
-  password: z.string().min(1, "Lösenord måste anges")
-});
-
-// Legacy schema
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
   password: true,
 }).extend({
   email: z.string().email("Ogiltig e-postadress"),
+  // We don't validate password since it's pre-filled
 });
 
 export const updateProfileSchema = z.object({
@@ -92,10 +60,6 @@ export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type RegisterUser = z.infer<typeof registerUserSchema>;
-export type ValidatedRegisterUser = z.infer<typeof validatedRegisterUserSchema>;
-export type VerifyUser = z.infer<typeof verifyUserSchema>;
-export type LoginUser = z.infer<typeof loginUserSchema>;
 export type UpdateProfile = z.infer<typeof updateProfileSchema>;
 export type User = typeof users.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
