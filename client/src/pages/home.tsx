@@ -20,60 +20,70 @@ const quickLinks = [
     title: "Översiktskarta", 
     href: "https://karta-bergakungen.replit.app", 
     useInAppBrowser: true,
-    icon: Map
+    icon: Map,
+    color: "text-green-600 dark:text-green-400"
   },
   { 
     title: "Docenten.se", 
     href: "https://www.hsb.se/sodertorn/brf/docenten/", 
     useInAppBrowser: true,
-    icon: HomeIcon
+    icon: HomeIcon,
+    color: "text-blue-600 dark:text-blue-400"
   },
   { 
     title: "Nyheter", 
     href: "https://www.hsb.se/sodertorn/brf/docenten/nyheter/", 
     useInAppBrowser: true,
-    icon: Newspaper
+    icon: Newspaper,
+    color: "text-orange-600 dark:text-orange-400"
   },
   { 
     title: "Boka samlingslokalen", 
     href: "https://mail.docenten.se/bokning/samlingslokalen/", 
     useInAppBrowser: true,
-    icon: Calendar
+    icon: Calendar,
+    color: "text-indigo-600 dark:text-indigo-400"
   },
   { 
     title: "Boka lägenheten", 
     href: "https://mail.docenten.se/bokning/docenten/lagenheten/", 
     useInAppBrowser: true,
-    icon: Bed
+    icon: Bed,
+    color: "text-violet-600 dark:text-violet-400"
   },
   { 
     title: "Boka snickarboa", 
     href: "https://mail.docenten.se/bokning/docenten/snickarboa/", 
     useInAppBrowser: true,
-    icon: Hammer
+    icon: Hammer,
+    color: "text-amber-600 dark:text-amber-400"
   },
   { 
     title: "Boka tvättstugan", 
     href: "https://docenten.pmdns.net", 
     useInAppBrowser: true,
-    icon: Clock
+    icon: Clock,
+    color: "text-cyan-600 dark:text-cyan-400"
   },
   { 
     title: "Inofficiell Facebookgrupp", 
     href: "https://www.facebook.com/groups/1233199001206234/",
-    icon: Facebook
+    icon: Facebook,
+    color: "text-blue-600 dark:text-blue-400"
   },
   { 
     title: "Nyheter från styrelsen (login)", 
     href: "https://mitthsb.hsb.se/mitthsb/oversikt/meddelanden-fran-styrelsen/", 
     openInSystemBrowser: true,
-    icon: MessageSquare
+    icon: MessageSquare,
+    color: "text-emerald-600 dark:text-emerald-400"
   },
   { 
     title: "Mina bostadsuppgifter HSB (login)", 
     href: "https://mitthsb.hsb.se/mitthsb/min-bostad/bostadsinformation/", 
     openInSystemBrowser: true,
-    icon: User
+    icon: User,
+    color: "text-purple-600 dark:text-purple-400"
   },
 ];
 
@@ -121,10 +131,10 @@ export default function Home() {
                 onClick={handleLinkClick(link)}
                 target={link.useInAppBrowser ? undefined : "_blank"}
                 rel={link.useInAppBrowser ? undefined : "noopener noreferrer"}
-                className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors shadow-sm border border-gray-200 dark:border-gray-700"
+                className={`flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-sm border-l-4 border border-gray-200 dark:border-gray-700 ${link.color.replace('text', 'border-l')}`}
               >
                 <div className="flex items-center gap-3">
-                  {link.icon && <link.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+                  {link.icon && <link.icon className={`h-5 w-5 ${link.color}`} />}
                   <span>{link.title}</span>
                 </div>
                 <ExternalLink className="h-4 w-4 text-gray-500" />
