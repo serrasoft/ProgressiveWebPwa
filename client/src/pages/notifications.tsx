@@ -275,6 +275,16 @@ export default function Notifications() {
     }
     
     setIsLoading(true);
+    
+    // Set a timeout to prevent freezing - will release the UI after 5 seconds
+    const setupTimeout = setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Förfrågan pågår...",
+        description: "Notisförfrågan tar längre tid än väntat. Du kan fortsätta använda appen.",
+      });
+    }, 5000);
+    
     try {
       console.log('Setting up iOS notification handling...');
       
@@ -313,9 +323,24 @@ export default function Notifications() {
         throw new Error("iOS version stöder ej push-notiser");
       }
       
-      // Request permissions manually for iOS
+      // Request permissions manually for iOS using a promise with timeout
       if (Notification.permission !== "granted") {
-        const permission = await Notification.requestPermission();
+        const permissionPromise = new Promise<NotificationPermission>((resolve, reject) => {
+          // Add a timeout for the permission request to prevent UI freezing
+          const permTimeout = setTimeout(() => {
+            reject(new Error("Behörighetsförfrågan tog för lång tid"));
+          }, 3000);
+          
+          Notification.requestPermission().then(permission => {
+            clearTimeout(permTimeout);
+            resolve(permission);
+          }).catch(err => {
+            clearTimeout(permTimeout);
+            reject(err);
+          });
+        });
+        
+        const permission = await permissionPromise;
         if (permission !== "granted") {
           throw new Error("Behörighet nekades för notiser");
         }
@@ -323,17 +348,51 @@ export default function Notifications() {
       
       // Now try to register for push notifications
       if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.ready;
+        // Wait for service worker with timeout
+        const swPromise = new Promise<ServiceWorkerRegistration>((resolve, reject) => {
+          const swTimeout = setTimeout(() => {
+            reject(new Error("Service worker tog för lång tid att svara"));
+          }, 3000);
+          
+          navigator.serviceWorker.ready.then(reg => {
+            clearTimeout(swTimeout);
+            resolve(reg);
+          }).catch(err => {
+            clearTimeout(swTimeout);
+            reject(err);
+          });
+        });
+        
+        const registration = await swPromise;
         
         // Check for existing subscription to avoid re-subscribing
         const existingSubscription = await registration.pushManager.getSubscription();
         if (existingSubscription) {
           console.log('Using existing iOS push subscription');
+          
+          // Force badge count sync immediately
+          try {
+            // Get current notification count for badge
+            const response = await fetch('/api/notifications');
+            if (response.ok) {
+              const notifications = await response.json();
+              if (Array.isArray(notifications)) {
+                await setAppBadge(notifications.length);
+                console.log(`Synced badge count to ${notifications.length}`);
+              }
+            }
+          } catch (badgeError) {
+            console.error('Badge sync failed:', badgeError);
+          }
+          
           setIsSubscribed(true);
           toast({
             title: "iOS Push aktiv",
             description: "Din enhet är inställd för att ta emot notiser",
           });
+          
+          clearTimeout(setupTimeout);
+          setIsLoading(false);
           return;
         }
         
@@ -348,11 +407,25 @@ export default function Notifications() {
         const applicationServerKey = urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY);
         
         try {
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: applicationServerKey,
+          // Use promise with timeout for subscription to prevent UI freeze
+          const subscribePromise = new Promise<PushSubscription>((resolve, reject) => {
+            const subTimeout = setTimeout(() => {
+              reject(new Error("Prenumerationsförfrågan tog för lång tid"));
+            }, 5000);
+            
+            registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: applicationServerKey,
+            }).then(sub => {
+              clearTimeout(subTimeout);
+              resolve(sub);
+            }).catch(err => {
+              clearTimeout(subTimeout);
+              reject(err);
+            });
           });
           
+          const subscription = await subscribePromise;
           console.log('iOS Push subscription created successfully');
           
           // Register with server
@@ -372,24 +445,48 @@ export default function Notifications() {
             throw new Error(`Server error: ${response.status}`);
           }
           
+          // Force immediate badge update
+          try {
+            const badgeResponse = await fetch('/api/notifications');
+            if (badgeResponse.ok) {
+              const notifications = await badgeResponse.json();
+              if (Array.isArray(notifications)) {
+                await setAppBadge(notifications.length);
+                console.log(`Set badge to ${notifications.length} after subscription`);
+              }
+            }
+          } catch (badgeError) {
+            console.error('Initial badge setup failed:', badgeError);
+          }
+          
           setIsSubscribed(true);
           toast({
             title: "iOS Push aktiverad",
             description: "Din iOS-enhet är nu inställd för att ta emot notiser",
           });
           
-          // Setup periodic refresh for iOS push
+          // Setup more frequent refresh for iOS push - every 15 minutes instead of hourly
           console.log("Setting up iOS push refresh timer");
           const refreshTimer = setInterval(async () => {
             if (document.visibilityState === 'visible') {
               try {
                 console.log("Performing periodic iOS push refresh");
                 await refreshSubscription();
+                
+                // Sync badge count with each refresh
+                const response = await fetch('/api/notifications');
+                if (response.ok) {
+                  const notifications = await response.json();
+                  if (Array.isArray(notifications)) {
+                    await setAppBadge(notifications.length);
+                    console.log(`Synced badge to ${notifications.length} during refresh`);
+                  }
+                }
               } catch (err) {
                 console.warn("iOS push refresh failed:", err);
               }
             }
-          }, 3600000); // 1 hour
+          }, 900000); // 15 minutes
           
           return () => clearInterval(refreshTimer);
           
@@ -409,6 +506,7 @@ export default function Notifications() {
         variant: "destructive",
       });
     } finally {
+      clearTimeout(setupTimeout);
       setIsLoading(false);
     }
   };

@@ -62,6 +62,69 @@ if ('serviceWorker' in navigator) {
       }
     }
     
+    // Handle iOS fallback notifications (for when push fails)
+    if (event.data.type === 'IOS_FALLBACK_NOTIFICATION') {
+      console.log('Received iOS fallback notification:', event.data);
+      
+      // Create an in-app notification element
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-16 right-4 bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 w-80 z-50 border border-accent';
+      notification.innerHTML = `
+        <div class="font-medium text-lg">${event.data.title}</div>
+        <div class="text-sm mt-1">${event.data.body || ''}</div>
+        <div class="text-xs text-muted-foreground mt-2">${new Date().toLocaleString('sv-SE')}</div>
+        <button class="absolute top-2 right-2 text-muted-foreground hover:text-foreground">&times;</button>
+      `;
+      
+      // Add click handler to close
+      const closeButton = notification.querySelector('button');
+      if (closeButton) {
+        closeButton.addEventListener('click', () => {
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+          }
+        });
+      }
+      
+      // Add click handler to the notification itself
+      notification.addEventListener('click', (e) => {
+        if (e.target !== closeButton) {
+          if (event.data.url) {
+            if (event.data.url.startsWith('http')) {
+              window.open(event.data.url, '_blank');
+            } else {
+              window.location.href = event.data.url;
+            }
+          }
+          
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+          }
+        }
+      });
+      
+      // Auto-remove after 10 seconds
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 10000);
+      
+      // Also update the badge
+      try {
+        const response = await fetch('/api/notifications');
+        if (response.ok) {
+          const notifications = await response.json();
+          if (Array.isArray(notifications) && notifications.length > 0) {
+            await setAppBadge(notifications.length);
+          }
+        }
+      } catch (error) {
+        console.error('Badge update failed for fallback notification:', error);
+      }
+    }
+    
     // Handle service worker activation message
     if (event.data.type === 'SW_ACTIVATED') {
       console.log('Service worker has been activated');
@@ -234,7 +297,29 @@ if ('serviceWorker' in navigator) {
   if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream) {
     console.log('Setting up iOS badge sync interval');
     
-    // Every 30 seconds, sync badge for iOS
+    // Initially sync badge count immediately
+    (async () => {
+      try {
+        console.log('Performing initial iOS badge sync');
+        
+        const response = await fetch('/api/notifications');
+        if (response.ok) {
+          const notifications = await response.json();
+          
+          if (Array.isArray(notifications) && notifications.length > 0) {
+            await setAppBadge(notifications.length);
+            console.log(`Initial badge set to: ${notifications.length}`);
+          } else {
+            await clearAppBadge();
+            console.log('Initial badge cleared: no notifications');
+          }
+        }
+      } catch (error) {
+        console.warn('Initial badge sync failed:', error);
+      }
+    })();
+    
+    // Every 10 seconds, sync badge for iOS (more frequent for better reliability)
     const iosBadgeSyncInterval = setInterval(async () => {
       try {
         // Only sync when page is visible
@@ -246,8 +331,24 @@ if ('serviceWorker' in navigator) {
             const notifications = await response.json();
             
             if (Array.isArray(notifications) && notifications.length > 0) {
-              await setAppBadge(notifications.length);
-              console.log(`Periodic badge update: ${notifications.length}`);
+              // Try up to 3 times to ensure badge is set correctly
+              let success = false;
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                  await setAppBadge(notifications.length);
+                  console.log(`App badge set to ${notifications.length} (attempt ${attempt})`);
+                  success = true;
+                  break;
+                } catch (badgeError) {
+                  console.warn(`Badge set attempt ${attempt} failed:`, badgeError);
+                  // Wait briefly before retry
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                }
+              }
+              
+              if (!success) {
+                console.error(`Failed to set badge after 3 attempts`);
+              }
             } else {
               await clearAppBadge();
               console.log('Periodic badge clear: no notifications');
@@ -257,7 +358,7 @@ if ('serviceWorker' in navigator) {
       } catch (error) {
         console.warn('Periodic badge sync failed:', error);
       }
-    }, 30000); // 30 seconds
+    }, 10000); // 10 seconds
     
     // Clear interval on page unload
     window.addEventListener('beforeunload', () => {
