@@ -17,6 +17,23 @@ import { isIOS, isSafari, supportsWebPushAPI } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import type { Notification } from "@shared/schema";
 
+// Helper function to convert base64 string to Uint8Array
+// This is needed for VAPID key processing for web push
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export default function Notifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -248,6 +265,151 @@ export default function Notifications() {
       setIsLoading(false);
     }
   };
+  
+  // Function to handle iOS-specific notification permission and setup
+  const handleiOSNotifications = async () => {
+    if (!isIOSDevice) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log('Setting up iOS notification handling...');
+      
+      // Check if we're on iOS 16.4+ which supports web push
+      const userAgent = navigator.userAgent;
+      const iosVersionMatch = userAgent.match(/OS (\d+)_(\d+)(?:_(\d+))?/);
+      let supportsPush = false;
+      
+      if (iosVersionMatch) {
+        const majorVersion = parseInt(iosVersionMatch[1], 10);
+        const minorVersion = parseInt(iosVersionMatch[2], 10);
+        
+        supportsPush = (majorVersion > 16) || (majorVersion === 16 && minorVersion >= 4);
+        console.log(`iOS ${majorVersion}.${minorVersion} detected, ${supportsPush ? 'supports' : 'does not support'} push notifications`);
+      }
+      
+      // Check if installed as PWA (standalone mode)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         (navigator as any).standalone === true;
+                         
+      if (!isStandalone) {
+        toast({
+          title: "Lägg till appen på startskärm",
+          description: "För att få notiser på iOS, installera appen på startskärmen genom att klicka på 'Dela' och sedan 'Lägg till på hemskärmen'.",
+          duration: 8000,
+        });
+        throw new Error("App måste vara installerad på startskärmen");
+      }
+      
+      if (!supportsPush) {
+        toast({
+          title: "iOS-version stöds inte",
+          description: "Din iOS-version stöder inte push-notiser. iOS 16.4 eller senare krävs.",
+          duration: 8000,
+        });
+        throw new Error("iOS version stöder ej push-notiser");
+      }
+      
+      // Request permissions manually for iOS
+      if (Notification.permission !== "granted") {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          throw new Error("Behörighet nekades för notiser");
+        }
+      }
+      
+      // Now try to register for push notifications
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Check for existing subscription to avoid re-subscribing
+        const existingSubscription = await registration.pushManager.getSubscription();
+        if (existingSubscription) {
+          console.log('Using existing iOS push subscription');
+          setIsSubscribed(true);
+          toast({
+            title: "iOS Push aktiv",
+            description: "Din enhet är inställd för att ta emot notiser",
+          });
+          return;
+        }
+        
+        // Create new subscription specifically formatted for iOS
+        console.log("Creating new iOS-optimized push subscription...");
+        
+        if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
+          throw new Error("VAPID nyckel saknas");
+        }
+        
+        // Convert VAPID key to correct format
+        const applicationServerKey = urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY);
+        
+        try {
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey,
+          });
+          
+          console.log('iOS Push subscription created successfully');
+          
+          // Register with server
+          const response = await fetch("/api/notifications/subscribe", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId: 1,
+              subscription: subscription.toJSON(),
+              platform: "ios", // Mark as iOS specifically
+            }),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+          
+          setIsSubscribed(true);
+          toast({
+            title: "iOS Push aktiverad",
+            description: "Din iOS-enhet är nu inställd för att ta emot notiser",
+          });
+          
+          // Setup periodic refresh for iOS push
+          console.log("Setting up iOS push refresh timer");
+          const refreshTimer = setInterval(async () => {
+            if (document.visibilityState === 'visible') {
+              try {
+                console.log("Performing periodic iOS push refresh");
+                await refreshSubscription();
+              } catch (err) {
+                console.warn("iOS push refresh failed:", err);
+              }
+            }
+          }, 3600000); // 1 hour
+          
+          return () => clearInterval(refreshTimer);
+          
+        } catch (subscribeError) {
+          console.error("iOS push subscribe failed:", subscribeError);
+          throw subscribeError;
+        }
+      } else {
+        throw new Error("Service Worker stöds inte i din webbläsare");
+      }
+      
+    } catch (error: any) {
+      console.error('iOS notification setup error:', error);
+      toast({
+        title: "iOS Push misslyckades",
+        description: error.message || "Kunde inte aktivera iOS-notiser",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Function to refresh the push subscription
   const refreshSubscription = async () => {
@@ -352,18 +514,46 @@ export default function Notifications() {
   };
 
   const renderContent = () => {
-    if (isIOSDevice || isSafariBrowser) {
+    if (isIOSDevice) {
       return (
         <div className="space-y-4">
           <div className="flex items-start gap-2 p-4 border rounded-lg bg-yellow-50">
             <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div>
-              <h3 className="font-medium text-yellow-800">Safari/iOS Begränsningar</h3>
+              <h3 className="font-medium text-yellow-800">iOS Instruktioner</h3>
               <p className="text-sm text-yellow-700 mt-1">
-                Pushnotiser stöds inte i Safari eller på iOS-enheter. För bästa upplevelse, 
-                vänligen lägg till denna app på hemskärmen eller använd en annan webbläsare som Chrome eller Edge.
+                För att få notiser på iOS, lägg till appen på hemskärmen först genom att klicka på 'Dela' och sedan 'Lägg till på hemskärmen'. 
+                Din enhet måste också köra iOS 16.4 eller senare.
               </p>
             </div>
+          </div>
+          
+          <Button 
+            onClick={handleiOSNotifications} 
+            className="w-full"
+            disabled={isLoading}
+          >
+            <Bell className="mr-2 h-4 w-4" />
+            {isLoading ? "Aktiverar..." : "Aktivera iOS Notiser"}
+          </Button>
+          
+          <div className="text-xs text-muted-foreground mt-1">
+            iOS kräver speciell hantering för att få notiser att fungera. Om du har notiser aktiverade men inte får dem, klicka på knappen igen för att förnya din prenumeration.
+          </div>
+        </div>
+      );
+    }
+    
+    if (isSafariBrowser) {
+      return (
+        <div className="flex items-start gap-2 p-4 border rounded-lg bg-yellow-50">
+          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+          <div>
+            <h3 className="font-medium text-yellow-800">Safari Begränsningar</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              Safari på macOS stöder inte fullt ut pushnotiser för webbapplikationer. För bästa upplevelse, 
+              vänligen använd en annan webbläsare som Chrome eller Firefox.
+            </p>
           </div>
         </div>
       );
