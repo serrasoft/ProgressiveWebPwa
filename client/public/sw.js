@@ -203,8 +203,18 @@ self.addEventListener('push', event => {
   console.log('🔔 Push event received!');
   console.log('Push event data:', event.data ? event.data.text() : 'no payload');
   
-  // Show this message in DevTools and logs to help with debugging
-  console.log('IMPORTANT: If using iOS 16.4+, ensure you\'re using Safari and the app is installed as a PWA');
+  // Enhanced debugging for iOS devices
+  const userAgent = self.navigator?.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !self.MSStream;
+  
+  if (isIOS) {
+    console.log('iOS DEVICE DETECTED: Special handling will be applied');
+    console.log('iOS Version:', userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/) ? 
+                             userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/)[1] : 'unknown');
+    console.log('IMPORTANT: For iOS, ensure using Safari and the app is installed as a PWA');
+  } else {
+    console.log('Non-iOS device detected, using standard push notification handling');
+  }
   console.log('Check browser compatibility: Firefox and Safari have different Web Push implementations');
 
   // Immediately wake all clients to ensure they receive the badge update
@@ -215,6 +225,7 @@ self.addEventListener('push', event => {
       allClients.forEach(client => {
         client.postMessage({
           type: 'WAKE_UP',
+          isIOS: isIOS,
           timestamp: Date.now()
         });
       });
@@ -241,9 +252,6 @@ self.addEventListener('push', event => {
 
   // Define unique tag for this notification to avoid duplicates
   const uniqueTag = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-  // Check if running on iOS
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !self.MSStream;
   
   // Enhanced notification options with special attention to iOS support
   // Simplified options for iOS to avoid any compatibility issues
