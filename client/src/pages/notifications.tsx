@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bell, Send, AlertCircle, ExternalLink, BadgeCheck } from "lucide-react";
+import { Bell, Send, AlertCircle, ExternalLink, BadgeCheck, RefreshCw } from "lucide-react";
 import { 
   requestNotificationPermission, 
   subscribeToNotifications, 
   clearAppBadge,
   setAppBadge,
-  isBadgingSupported
+  isBadgingSupported,
+  isPushNotificationSupported,
+  isIOS as isIOSDevice
 } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -126,11 +128,12 @@ export default function Notifications() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
   
-  // Setup message listener for badge updates from service worker
+  // Setup message listener for badge updates and fallback notifications from service worker
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
     
     const handleMessage = async (event: MessageEvent) => {
+      // Handle badge updates
       if (event.data?.type === 'UPDATE_BADGE') {
         console.log(`Updating badge to ${event.data.count} from service worker message`);
         try {
@@ -143,6 +146,60 @@ export default function Notifications() {
           console.error('Failed to update badge from service worker message:', error);
         }
       }
+      
+      // Handle fallback notifications from service worker
+      if (event.data?.type === 'SHOW_NOTIFICATION') {
+        console.log('Showing fallback notification from service worker', event.data);
+        
+        // Show notification using the toast system
+        toast({
+          title: event.data.title || 'Ny notis',
+          description: event.data.body || 'Nytt meddelande från Bergakungen',
+          duration: 5000,
+        });
+        
+        // Also show an in-app notification (useful for iOS)
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-16 right-4 bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 w-80 z-50 border border-accent';
+        notification.innerHTML = `
+          <div class="font-medium text-lg">${event.data.title || 'Ny notis'}</div>
+          <div class="text-sm mt-1">${event.data.body || 'Nytt meddelande från Bergakungen'}</div>
+          <div class="text-xs text-muted-foreground mt-2">${new Date().toLocaleString('sv-SE')}</div>
+          <button class="absolute top-2 right-2 text-muted-foreground hover:text-foreground">&times;</button>
+        `;
+        
+        // Add click handler
+        const closeButton = notification.querySelector('button');
+        if (closeButton) {
+          closeButton.addEventListener('click', () => {
+            if (document.body.contains(notification)) {
+              document.body.removeChild(notification);
+            }
+          });
+        }
+        
+        // Handle link if available
+        if (event.data.data?.link) {
+          notification.addEventListener('click', () => {
+            window.open(event.data.data.link, '_blank');
+            if (document.body.contains(notification)) {
+              document.body.removeChild(notification);
+            }
+          });
+          notification.style.cursor = 'pointer';
+        }
+        
+        // Auto-remove after 5 seconds
+        document.body.appendChild(notification);
+        setTimeout(() => {
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+          }
+        }, 5000);
+        
+        // Refresh notification list
+        refetch();
+      }
     };
     
     navigator.serviceWorker.addEventListener('message', handleMessage);
@@ -150,7 +207,7 @@ export default function Notifications() {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [refetch, toast]);
 
   useEffect(() => {
     if (!isIOSDevice && !isSafariBrowser) {
@@ -192,6 +249,51 @@ export default function Notifications() {
     }
   };
 
+  // Function to refresh the push subscription
+  const refreshSubscription = async () => {
+    if (!isSubscribed || isIOSDevice || isSafariBrowser || !pushSupported) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (!('serviceWorker' in navigator)) {
+        throw new Error("Service Worker stöds inte i din webbläsare");
+      }
+      
+      console.log("Förnyar push-prenumeration...");
+      
+      // Get the service worker registration
+      const registration = await navigator.serviceWorker.ready;
+      
+      // Get current subscription and unsubscribe
+      const currentSubscription = await registration.pushManager.getSubscription();
+      if (currentSubscription) {
+        console.log("Avsluter nuvarande prenumeration...");
+        await currentSubscription.unsubscribe();
+      }
+      
+      // Create a new subscription
+      console.log("Skapar ny prenumeration...");
+      const newSubscription = await subscribeToNotifications();
+      
+      console.log("Prenumeration förnyad:", newSubscription);
+      toast({
+        title: "Klart",
+        description: "Push-prenumerationen har förnyats",
+      });
+    } catch (error: any) {
+      console.error("Fel vid förnyande av prenumeration:", error);
+      toast({
+        title: "Fel",
+        description: error.message || "Kunde inte förnya push-prenumerationen",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const sendTestNotification = async () => {
     if (isIOSDevice || isSafariBrowser) {
       return;
@@ -204,10 +306,39 @@ export default function Notifications() {
         body: "Detta är en test pushnotis!",
       });
       console.log('Test notification response:', response);
+      
+      // Also show an in-app fallback notification for iOS or in case the push fails
       toast({
         title: "Klart",
         description: "Testnotisen har skickats",
       });
+      
+      // Create an in-app notification as fallback
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-16 right-4 bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 w-80 z-50 border border-accent';
+      notification.innerHTML = `
+        <div class="font-medium text-lg">Testnotis</div>
+        <div class="text-sm mt-1">Detta är en test pushnotis!</div>
+        <div class="text-xs text-muted-foreground mt-2">${new Date().toLocaleString('sv-SE')}</div>
+        <button class="absolute top-2 right-2 text-muted-foreground hover:text-foreground">&times;</button>
+      `;
+      
+      // Add click handler to close
+      const closeButton = notification.querySelector('button');
+      if (closeButton) {
+        closeButton.addEventListener('click', () => {
+          document.body.removeChild(notification);
+        });
+      }
+      
+      // Auto-remove after 5 seconds
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 5000);
+      
     } catch (error) {
       console.error('Failed to send test notification:', error);
       toast({
@@ -269,14 +400,30 @@ export default function Notifications() {
             <p className="text-sm text-muted-foreground mb-4">
               Du prenumererar på pushnotiser
             </p>
-            <Button 
-              onClick={sendTestNotification} 
-              className="w-full"
-              disabled={isLoading}
-            >
-              <Send className="mr-2 h-4 w-4" />
-              {isLoading ? "Skickar..." : "Skicka testnotis"}
-            </Button>
+            <div className="flex flex-col space-y-2">
+              <Button 
+                onClick={sendTestNotification} 
+                className="w-full"
+                disabled={isLoading}
+              >
+                <Send className="mr-2 h-4 w-4" />
+                {isLoading ? "Skickar..." : "Skicka testnotis"}
+              </Button>
+              
+              <Button 
+                onClick={refreshSubscription} 
+                variant="outline"
+                className="w-full"
+                disabled={isLoading}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {isLoading ? "Förnyar..." : "Förnya prenumeration"}
+              </Button>
+              
+              <div className="text-xs text-muted-foreground mt-1">
+                Om du inte får notiser, prova att förnya prenumerationen. Detta kan hjälpa speciellt på iOS-enheter.
+              </div>
+            </div>
           </>
         )}
       </>
