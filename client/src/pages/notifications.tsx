@@ -40,7 +40,7 @@ export default function Notifications() {
   const [badgingSupported, setBadgingSupported] = useState(false);
   const { toast } = useToast();
   
-  // Use the actual iOS detection function
+  // For iOS, we need to provide special UI and instructions
   const isIOSDevice = isIOS();
   const isSafariBrowser = isSafari();
   const pushSupported = supportsWebPushAPI();
